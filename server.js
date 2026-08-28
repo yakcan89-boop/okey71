@@ -129,15 +129,23 @@ function viewFor(room, seat) {
     deck: S.deck.length, center: S.center.length,
     totals: S.totals, xm: S.xm, history: S.history,
     melds: S.melds.map(m => ({ tiles: m.tiles, owner: m.owner, pair: !!m.pair })),
-    players: S.players.map((p, i) => ({
-      i, name: room.seats[i] ? room.seats[i].name : p.name,
-      hand: i === seat ? p.hand : p.hand.map(hide),
-      count: p.hand.length,
-      discards: p.discards,
-      opened: p.opened, pairs: p.pairs, pairCount: p.pairCount,
-      openPoints: p.openPoints, openPairs: p.openPairs,
-      mustOpen: p.mustOpen, pendingLay: p.pendingLay, proc: p.proc, fine: p.fine
-    })),
+    players: S.players.map((p, i) => {
+      const ad = room.seats[i] ? room.seats[i].name : p.name;
+      if (i === seat) {
+        // kendi oyuncun: motorun tuttuğu her alan gitsin, ekran hepsini kullanıyor
+        return Object.assign({}, p, { i, name: ad, hand: p.hand, count: p.hand.length });
+      }
+      return {
+        i, name: ad,
+        hand: p.hand.map(hide), count: p.hand.length,
+        discards: p.discards,
+        opened: p.opened, pairs: p.pairs, pairCount: p.pairCount,
+        openPoints: p.openPoints, openPairs: p.openPairs,
+        procLog: [], procMap: {}, proc: p.proc,
+        mustOpen: false, pendingLay: null, mustRelay: null, okeyDebt: null,
+        layNow: false, retracted: false, tookToOpen: false, fine: p.fine
+      };
+    }),
     log: room.log.slice(-40),
     ask: room.pendingAsk && room.pendingAsk.seat === seat
       ? { title: room.pendingAsk.title, html: room.pendingAsk.html, buttons: room.pendingAsk.buttons }

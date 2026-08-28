@@ -1959,7 +1959,7 @@ function render(){
   add(`<b>${hi.pairs}</b> çift`, (!me().opened&&hi.pairs>=needC)?'ci':'');
   add(`<b>${hi.cover}</b>/${me().hand.length} <small>taş perde</small>`);
   if(S.dealer===0) add('<small>bu eli</small> <b>sen dağıttın</b>');
-  if(me().okeyDebt&&me().hand.some(t=>t.id===me().okeyDebt))
+  if(me().okeyDebt&&(me().hand||[]).some(t=>t.id===me().okeyDebt))
     add('<b style="color:#ffd88a">okey elinde</b> <small>— indirmezsen 71</small>');
   if(me().opened) add(me().pairs
     ? `<b>${Math.max(0,1-me().proc)}</b> <small>işleme hakkı</small>`
@@ -1973,8 +1973,8 @@ function render(){
   $('btnOpen').disabled=!(act&&!me().opened);
   $('btnPut').disabled=!(act&&me().opened);
   $('btnProcess').disabled=!(act&&me().opened&&!me().pairs);
-  $('btnCollect').disabled=!(act&&(me().procLog.length>0||!!S.snap));
-  $('btnCollect').textContent=(act&&me().procLog.length)?'Son işlemeyi geri al':'Taşı topla';
+  $('btnCollect').disabled=!(act&&((me().procLog||[]).length>0||!!S.snap));
+  $('btnCollect').textContent=(act&&(me().procLog||[]).length)?'Son işlemeyi geri al':'Taşı topla';
   $('btnDiscard').disabled=!act;
   $('btnLeft').disabled=$('btnRight').disabled=S.selected.size!==1;
   $('btnJoin').disabled=S.selected.size<2;
