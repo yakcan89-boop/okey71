@@ -1,0 +1,13 @@
+{
+  "name": "okey71",
+  "version": "1.0.0",
+  "private": true,
+  "description": "71 Okey - ozel oda sunucusu",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
