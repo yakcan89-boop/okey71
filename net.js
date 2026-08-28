@@ -45,7 +45,8 @@
       '<button id="lbCreate" style="' + BTN + '">Oda kur</button>' +
       '<div style="margin:16px 0 6px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;opacity:.55">ya da</div>' +
       '<input id="lbCode" style="' + INP + '" placeholder="Oda kodu" maxlength="4">' +
-      '<button id="lbJoin" style="' + BTN2 + '">Odaya katıl</button>'
+      '<button id="lbJoin" style="' + BTN2 + '">Odaya katıl</button>' +
+      '<button id="lbLeave" style="font:inherit;font-size:12px;padding:6px;border-radius:6px;border:none;background:rgba(255,0,0,0.2);color:#ffb4ae;cursor:pointer;width:100%;margin-top:14px">Kaydı Temizle / Yeniden Başla</button>'
     );
     const url = new URL(location.href);
     const pre = url.searchParams.get('oda');
@@ -64,6 +65,20 @@
     paint();
     document.getElementById('lbCreate').onclick = () => create();
     document.getElementById('lbJoin').onclick = () => join();
+    document.getElementById('lbLeave').onclick = () => {
+      localStorage.removeItem('okey_code');
+      localStorage.removeItem('okey_pid');
+      location.reload();
+    };
+
+    const savedCode = localStorage.getItem('okey_code');
+    const savedPid = localStorage.getItem('okey_pid');
+    if (savedCode && savedPid) {
+      CODE = savedCode;
+      PID = savedPid;
+      note('Kaldığın odaya bağlanılıyor...');
+      connect();
+    }
   }
 
   function nameVal() {
@@ -103,6 +118,8 @@
       const d = await post('/api/create', { name: nameVal(), teams: TEAMS });
       if (d.err) { note('Hata: ' + d.err); return; }
       CODE = d.code; PID = d.pid; SEAT = d.seat;
+      localStorage.setItem('okey_code', CODE);
+      localStorage.setItem('okey_pid', PID);
       api.setSelf(SEAT);
       note('Oda kuruldu: ' + CODE);
       connect();
@@ -120,6 +137,8 @@
       const d = await post('/api/join', { code, name: nameVal() });
       if (d.err) { note('Hata: ' + d.err); return; }
       CODE = d.code; PID = d.pid; SEAT = d.seat;
+      localStorage.setItem('okey_code', CODE);
+      localStorage.setItem('okey_pid', PID);
       api.setSelf(SEAT);
       connect();
     } catch (e) {
@@ -143,7 +162,8 @@
       (v.seat === 0
         ? '<button id="lbStart" style="' + BTN + '">Oyunu başlat</button>' +
           '<div style="font-size:11px;opacity:.6;margin-top:8px">Boş koltuklar bot olarak oynar.</div>'
-        : '<div style="font-size:13px;opacity:.75;margin-top:14px">Oda sahibi başlatınca oyun açılacak…</div>')
+        : '<div style="font-size:13px;opacity:.75;margin-top:14px">Oda sahibi başlatınca oyun açılacak…</div>') +
+      '<button id="lbLeave" style="font:inherit;font-size:12px;padding:6px;border-radius:6px;border:none;background:rgba(255,0,0,0.2);color:#ffb4ae;cursor:pointer;width:100%;margin-top:14px">Odadan Çık / Yeni Oda</button>'
     );
     const c = document.getElementById('lbCopy');
     if (c) c.onclick = () => {
@@ -153,9 +173,15 @@
     };
     const st = document.getElementById('lbStart');
     if (st) st.onclick = () => post('/api/start', { code: CODE, pid: PID });
+
+    const lv = document.getElementById('lbLeave');
+    if (lv) lv.onclick = () => {
+      localStorage.removeItem('okey_code');
+      localStorage.removeItem('okey_pid');
+      location.reload();
+    };
   }
 
-  /* ---------- sunucu durumunu ekrana uygula ---------- */
   function apply(v) {
     LAST = v;
     const S = api.S;
@@ -190,7 +216,6 @@
     box.scrollTop = box.scrollHeight;
   }
 
-  /* ---------- soru ve el sonu kutuları ---------- */
   function showAsk(a) {
     const veil = document.getElementById('veil');
     document.querySelectorAll('.veil .opt').forEach(x => x.remove());
@@ -225,12 +250,16 @@
     veil.classList.remove('hidden');
   }
 
-  /* ---------- bağlantı: uzun yoklama (her ağda çalışır) ---------- */
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  let VER = -1, RUNNING = false;   // -1: ilk durumu hemen iste, bekleme
+  let VER = -1, RUNNING = false;
 
   function handle(v) {
-    if (v.gone) { location.reload(); return; }
+    if (v.gone) {
+      localStorage.removeItem('okey_code');
+      localStorage.removeItem('okey_pid');
+      location.reload();
+      return;
+    }
     try { handle_(v); } catch (e) { note('Ekran hatası: ' + e.message); }
   }
   function handle_(v) {
@@ -251,7 +280,15 @@
         const d = await r.json();
         if (d.version != null) VER = d.version;
         if (d.noChange) continue;
-        if (d.err) { await sleep(1500); continue; }
+        if (d.err) {
+          if (d.err.includes('Oda') || d.err.includes('bulunamadı')) {
+            localStorage.removeItem('okey_code');
+            localStorage.removeItem('okey_pid');
+            location.reload();
+          }
+          await sleep(1500);
+          continue;
+        }
         handle(d);
       } catch (e) {
         await sleep(1500);
@@ -259,7 +296,6 @@
     }
   }
 
-  /* ---------- hamleleri sunucuya gönder ---------- */
   function flash(msg) {
     const box = document.getElementById('log');
     if (!box) return;
@@ -301,7 +337,6 @@
 
   function bind() {
     const on = (id, fn) => { const e = document.getElementById(id); if (e) e.onclick = fn; };
-    // ağda kullanılmayanları gizle
     ['btnGroup'].forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
 
     on('btnDeck',    () => act('deck'));
@@ -320,13 +355,9 @@
       act('discard', { id: ids[0] });
     });
 
-    // takozdaki taşa dokununca atma (sürükleyip atma kutusu) da sunucuya gitsin
     window.__netDiscard = id => act('discard', { id });
-
-    // yerel kalanlar: dizme, seçim, puan tablosu — dokunma
   }
 
-  /* yerel "doDiscard" yerine ağ sürümü (sürükle-bırak için) */
   window.doDiscard = function (auto) {
     const ids = Array.from(api.S.selected || []);
     if (ids.length !== 1) return;

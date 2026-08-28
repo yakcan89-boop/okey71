@@ -132,7 +132,6 @@ function viewFor(room, seat) {
     players: S.players.map((p, i) => {
       const ad = room.seats[i] ? room.seats[i].name : p.name;
       if (i === seat) {
-        // kendi oyuncun: motorun tuttuğu her alan gitsin, ekran hepsini kullanıyor
         return Object.assign({}, p, { i, name: ad, hand: p.hand, count: p.hand.length });
       }
       return {
@@ -180,9 +179,7 @@ function startRoom(room) {
   S.history = [];
   S.handNo = 1;
   S.dealer = Math.floor(Math.random() * 4);
-  // koltuğu boş olanlar bot
   api.newHand();
-  // insan oyuncuların bot bayrağını kapat
   S.players.forEach((p, i) => { p.bot = !room.seats[i]; });
   const kisi = room.seats.filter(Boolean).length;
   room.log.push({
@@ -190,7 +187,6 @@ function startRoom(room) {
     big: true, t: Date.now()
   });
   push(room);
-  // sıra bottaysa oynatalım
   if (S.players[S.turn].bot) setTimeout(() => room.api.botTurn(), 700);
 }
 
@@ -231,7 +227,7 @@ function doAction(room, seat, type, data) {
   const fn = ACTIONS[type];
   if (!fn) return { ok: false, err: 'Bilinmeyen hamle.' };
 
-  S.busy = false;                       // insan oynarken motor kilidi açık olmalı
+  S.busy = false;
   const before = { hand: S.players[seat].hand.length, turn: S.turn, phase: S.phase,
                    melds: S.melds.length, log: room.log.length };
   api.setSelf(seat);
@@ -351,20 +347,45 @@ const server = http.createServer(async (req, res) => {
     const pid  = u.searchParams.get('pid');
     const v    = parseInt(u.searchParams.get('v') || '0', 10);
     if (!room) return send(res, 404, { err: 'Oda yok.' });
-    const seat = seatOf(room, pid);
+    
+    let seat = seatOf(room, pid);
+    if (seat < 0 && room.started) {
+      const emptySeat = room.seats.findIndex(s => !s);
+      if (emptySeat >= 0) {
+        room.seats[emptySeat] = { pid, name: 'Oyuncu' };
+        seat = emptySeat;
+        room.api.S.players[seat].bot = false;
+        push(room);
+      }
+    }
     if (seat < 0) return send(res, 403, { gone: true });
-    // güvenlik: sıra bir insandaysa motor kilidi açık olmalı
+
+    room.seats[seat].lastSeen = Date.now();
     const S = room.api.S;
     if (room.started && S.busy && room.seats[S.turn]) {
       S.busy = false;
       push(room);
     }
     if (room.version > v) return send(res, 200, viewFor(room, seat));
+    
     const w = { pid, res };
     w.timer = setTimeout(() => {
       room.waiters = room.waiters.filter(x => x !== w);
+      
+      const sIndex = seatOf(room, pid);
+      if (sIndex >= 0 && room.started && !S.over) {
+        const seatObj = room.seats[sIndex];
+        if (seatObj && Date.now() - (seatObj.lastSeen || 0) > 20000) {
+          S.players[sIndex].bot = true;
+          if (S.turn === sIndex && S.phase === 'draw') {
+            try { S.busy = false; S.api.botTurn(); } catch(_) {}
+          }
+        }
+      }
+
       try { send(res, 200, { noChange: true, version: room.version }); } catch (e) {}
     }, 25000);
+    
     room.waiters.push(w);
     req.on('close', () => {
       clearTimeout(w.timer);
