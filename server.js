@@ -61,7 +61,7 @@ function makeRoom(teams) {
       try { f(); }
       catch (e) {
         console.error('MOTOR HATASI:', e.message);
-        try { room.api.S.busy = false; } catch (_) {}   // kilit kalmasın
+        try { room.api.S.busy = false; } catch (_) {}
         try { push(room); } catch (_) {}
       }
     }, d),
@@ -85,7 +85,6 @@ function makeRoom(teams) {
   const api = ctx.__api;
   room.api = api;
 
-  // motorun günlüğünü ve el sonu ekranlarını yakala
   const S = api.S;
   ctx.log = (m, big) => {
     room.log.push({ m: String(m), big: !!big, t: Date.now() });
@@ -112,7 +111,6 @@ function seatOf(room, pid) {
   return room.seats.findIndex(s => s && s.pid === pid);
 }
 
-/* ---------- oyuncuya özel görüntü ---------- */
 function viewFor(room, seat) {
   const S = room.api.S;
   const hide = t => ({ id: t.id, h: 1 });
@@ -164,11 +162,10 @@ function push(room) {
     try {
       if (seat < 0) send(w.res, 200, { gone: true });
       else send(w.res, 200, viewFor(room, seat));
-    } catch (e) { /* kopmuş bağlantı */ }
+    } catch (e) {}
   }
 }
 
-/* ---------- oyunu başlat ---------- */
 function startRoom(room) {
   const api = room.api;
   const S = api.S;
@@ -190,7 +187,6 @@ function startRoom(room) {
   if (S.players[S.turn].bot) setTimeout(() => room.api.botTurn(), 700);
 }
 
-/* ---------- hamle ---------- */
 const ACTIONS = {
   deck:    api => api.doDeck(),
   take:    api => api.doTake(),
@@ -247,7 +243,6 @@ function doAction(room, seat, type, data) {
   return { ok: true };
 }
 
-/* ---------- HTTP ---------- */
 function send(res, code, body, type) {
   res.writeHead(code, { 'Content-Type': type || 'application/json; charset=utf-8' });
   res.end(typeof body === 'string' ? body : JSON.stringify(body));
@@ -307,6 +302,19 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, { ok: true });
   }
 
+  if (p === '/api/close' && req.method === 'POST') {
+    const d = await readBody(req);
+    const room = rooms.get(String(d.code || '').toUpperCase());
+    if (!room) return send(res, 404, { err: 'Oda yok.' });
+    if (seatOf(room, d.pid) !== 0) return send(res, 403, { err: 'Sadece oda sahibi kapatabilir.' });
+    rooms.delete(room.code);
+    room.waiters.forEach(w => {
+      try { send(w.res, 200, { gone: true }); } catch(e){}
+    });
+    room.waiters = [];
+    return send(res, 200, { ok: true });
+  }
+
   if (p === '/api/action' && req.method === 'POST') {
     const d = await readBody(req);
     const room = rooms.get(String(d.code || '').toUpperCase());
@@ -325,7 +333,7 @@ const server = http.createServer(async (req, res) => {
     const ask = room.pendingAsk;
     room.pendingAsk = null;
     room.api.setSelf(seat);
-    try { ask.fns[d.idx].fn(); } catch (e) { /* yut */ }
+    try { ask.fns[d.idx].fn(); } catch (e) {}
     room.api.setSelf(0);
     push(room);
     return send(res, 200, { ok: true });
@@ -337,7 +345,7 @@ const server = http.createServer(async (req, res) => {
     if (!room || !room.pendingNext) return send(res, 400, { err: 'Bekleyen el yok.' });
     const fn = room.pendingNext.fn;
     room.pendingNext = null;
-    try { fn(); } catch (e) { /* yut */ }
+    try { fn(); } catch (e) {}
     push(room);
     return send(res, 200, { ok: true });
   }
@@ -376,9 +384,18 @@ const server = http.createServer(async (req, res) => {
       if (sIndex >= 0 && room.started && !S.over) {
         const seatObj = room.seats[sIndex];
         if (seatObj && Date.now() - (seatObj.lastSeen || 0) > 20000) {
-          S.players[sIndex].bot = true;
-          if (S.turn === sIndex && S.phase === 'draw') {
-            try { S.busy = false; S.api.botTurn(); } catch(_) {}
+          // Eğer oda sahibi (0. koltuk) 20 saniyedir oyunda yoksa odayı tamamen kapat
+          if (sIndex === 0) {
+            rooms.delete(room.code);
+            room.waiters.forEach(waiter => {
+              try { send(waiter.res, 200, { gone: true }); } catch(e){}
+            });
+            room.waiters = [];
+          } else {
+            S.players[sIndex].bot = true;
+            if (S.turn === sIndex && S.phase === 'draw') {
+              try { S.busy = false; S.api.botTurn(); } catch(_) {}
+            }
           }
         }
       }

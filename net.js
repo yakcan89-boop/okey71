@@ -5,7 +5,6 @@
 
   let CODE = null, PID = null, SEAT = 0, STARTED = false, LAST = null;
 
-  /* ---------- lobi ekranı ---------- */
   const lob = document.createElement('div');
   lob.id = 'lobby';
   lob.style.cssText =
@@ -91,8 +90,7 @@
     if (!n) {
       n = document.createElement('div');
       n.id = 'lbNote';
-      n.style.cssText = 'margin-top:12px;font-size:13px;line-height:1.5;color:#ffd88a;' +
-                        'word-break:break-word';
+      n.style.cssText = 'margin-top:12px;font-size:13px;line-height:1.5;color:#ffd88a;word-break:break-word';
       lob.firstChild.appendChild(n);
     }
     n.textContent = msg;
@@ -121,7 +119,6 @@
       localStorage.setItem('okey_code', CODE);
       localStorage.setItem('okey_pid', PID);
       api.setSelf(SEAT);
-      note('Oda kuruldu: ' + CODE);
       connect();
     } catch (e) {
       note('Bağlanamadım: ' + e.message);
@@ -201,6 +198,31 @@
     api.setSelf(v.seat);
     api.render();
     paintLog(v.log);
+    checkCloseButton(v.seat);
+  }
+
+  // Oda sahibine oyun ekranında sağ üstte "Masayı Kapat" butonu ekler
+  function checkCloseButton(seat) {
+    let btn = document.getElementById('btnCloseRoom');
+    if (seat === 0) {
+      if (!btn) {
+        btn = document.createElement('button');
+        btn.id = 'btnCloseRoom';
+        btn.textContent = 'Masayı Kapat';
+        btn.style.cssText = 'position:fixed;top:8px;right:8px;z-index:150;font-size:11px;font-weight:700;padding:5px 8px;border-radius:6px;border:1px solid #ffb4ae;background:rgba(224,87,79,0.85);color:#fff;cursor:pointer;';
+        btn.onclick = async () => {
+          if (confirm('Masayı kapatmak istediğine emin misin? Oyun herkes için sonlandırılacak.')) {
+            await post('/api/close', { code: CODE, pid: PID });
+            localStorage.removeItem('okey_code');
+            localStorage.removeItem('okey_pid');
+            location.reload();
+          }
+        };
+        document.body.appendChild(btn);
+      }
+    } else if (btn) {
+      btn.remove();
+    }
   }
 
   function paintLog(lines) {
