@@ -120,6 +120,9 @@ body{
 .meld{display:flex;gap:2px;padding:3px 4px;border-radius:6px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.16);cursor:pointer}
 .meld .who{font-size:8px;writing-mode:vertical-rl;opacity:.6;align-self:center;letter-spacing:.1em}
 .meld.pair{border-color:#e0574f;background:rgba(224,87,79,.14)}
+/* elle işleme: taşı perin üstüne sürüklerken uyarsa yeşil, uymazsa kırmızı */
+.meld.hot{border-color:#8bd6a4;background:rgba(139,214,164,.22);box-shadow:0 0 0 2px rgba(139,214,164,.45)}
+.meld.no{border-color:#e0574f;background:rgba(224,87,79,.18);opacity:.7}
 .hint{opacity:.5;font-size:12px;font-style:italic}
 .side{
   flex:0 0 auto;width:88px;display:flex;flex-direction:column;gap:4px;align-items:center;
@@ -478,8 +481,9 @@ details.rules div{padding-top:7px;line-height:1.7}
       <b>Elden bitiş barajsız:</b> Yerden taş almadan, işleme yapmadan tüm elini dizip bitirebilirsin — toplamın 71'in altında olsa bile.<br>
       <b>Taşı topla / geri al:</b> Bu turda taş işlediysen düğme “Son işlemeyi geri al” olur; geri aldığın taşı <b>o tur yeniden yere indirmelisin</b>, elinde kalırsa 71 ceza. Hiç işleme yapmadıysan düğme tüm turu geri alır, taş atınca 71 yazılır.<br>
       <b>İşleme:</b> Açtıktan sonra yerdeki perlere taş eklersin. <b>Aynı uca bir turda en fazla 2 taş</b> işlenir, ama perin öbür ucuna ve başka perlere ayrıca işleyebilirsin — yerde 4-5-6 varken elindeki 2 ile 3'ü alt uca, 7'yi üst uca aynı turda koyabilirsin. <b>Çift açan turda yalnız 1 taş</b> işler. Seri açan oyuncu, yerde çift açan varsa elindeki bir çifti turda bir kez oraya işleyebilir.<br>
+      <b>Elle işleme:</b> “İşle” düğmesi taşı kendi bulduğu ilk pere koyar. Hangi pere gideceğine kendin karar vermek istersen <b>taşı takozdan alıp doğrudan o perin üstüne sürükle</b>. Uyuyorsa per yeşil, uymuyorsa kırmızı yanar. Sürüklediğin taş <b>perdeki okeyin tam yerine</b> denk geliyorsa bırakınca okey senin olur, taşın onun yerine girer. Bu, elinde tek taş kalsa bile yapılabilir: elde taş sayısı değişmez — okeyi alıp onu atarak bitirebilirsin, o zaman <b>okey attın</b> sayılır ve herkes iki katı yazar.<br>
       <b>Geri bırakma:</b> Sadece yerden aldığın taş geri bırakılabilir; ortadan çektiğin taş geri gitmez.<br>
-      <b>İşlek taş:</b> Yerdeki perlere uyan taşı atan 71 ceza yazar ve <b>o taş ölür</b> — kimse alamaz, ne açmak ne işlemek ne de çift için. Ekranda soluk görünür.<br>
+      <b>İşlek taş:</b> Yerdeki perlere uyan taşı atan 71 ceza yazar ve <b>o taş ölür</b> — kimse alamaz, ne açmak ne işlemek ne de çift için. Ekranda soluk görünür. <b>Eli bitiren son taş bunun dışındadır:</b> son taşını atıp bitiyorsan işlek olsa da ceza yok, taş da ölmez — el zaten kapanıyor. Son taşın okeyse okey atmış olursun, herkes iki katı yazar.<br>
       <b>Süre:</b> Varsayılan kapalı. Üst şeritteki süre rozetine dokunarak 40 / 60 / 80 saniye arasında geçersin. Süre dolarsa yerden aldığın taş geri bırakılır, ortadan taş çekilip atılır — ceza yazılmaz, çift sayılmazsın.<br>
       <b>Puan tablosu:</b> “Puan tablosu” düğmesiyle açılır. Her elin puanı alt alta, X'ler yanında; altta toplam, X sayısı ve net puan. 8 el sonunda net puanı en düşük olan kazanır.<br>
       <b>Atılan taşlar:</b> Kendi attıklarını her zaman görebilirsin. Rakiplerin attıklarını yalnızca <b>çift diyen</b> görebilir (eşli oyunda eşi de). Diğerleri aklında tutacak.<br>
@@ -1300,7 +1304,10 @@ function botPlay(p){
 
     const t=botDiscard(p);
     if(!t){ S.busy=false; advance(); return; }
-    if(p.tookToOpen&&!p.opened){
+    // Bu atış eli bitiriyorsa tur sonu cezaları işlemez — bitiren oyuncu
+    // işlek taş ya da indirilmemiş taş cezası yemez.
+    const bitiyor = p.hand.length===1;
+    if(p.tookToOpen&&!p.opened&&!bitiyor){
       p.fine+=71;
       log(`${p.name} aldığı taşla açamadı — 71 ceza.`,true);
     }
@@ -1309,7 +1316,7 @@ function botPlay(p){
     p.hand=p.hand.filter(x=>x.id!==t.id);
     p.discards.push(t);
     S.okeyFinish=isWild(t);
-    if(isLive(t)){ t.dead=true; p.fine+=71; log(`${p.name} işlek taş attı — 71 ceza. O taş ölü.`,true); }
+    if(isLive(t)&&!bitiyor){ t.dead=true; p.fine+=71; log(`${p.name} işlek taş attı — 71 ceza. O taş ölü.`,true); }
     log(`${p.name} ${tileName(t)} attı.`);
     render();
     if(p.hand.length===0){ endHand(p.i,`${p.name} son taşını attı.`); return; }
@@ -1680,6 +1687,71 @@ function autoOkey(p){
   return n;
 }
 
+/* ---- elle işleme: taşı yerdeki belirli bir pere sürükleyerek ---- */
+
+// Bu perdeki okey tam olarak bu taşın yerine mi duruyor?
+// Duruyorsa taşı oraya bırakmak "işleme" değil, okeyi almaktır.
+function meldOkeySlot(m,t){
+  if(!m||!t||isWild(t)||t.fake) return null;
+  const w=m.tiles.find(isWild);
+  if(!w) return null;
+  const wn=m.tiles.filter(isWild).length;
+  const slots=wildSlots(m.tiles);
+  if(slots.length!==wn) return null;          // okeyin yeri henüz kesin değil
+  return slots.some(s=>s.c===t.c&&s.n===t.n) ? w : null;
+}
+
+// Sürüklenen taş bu pere bırakılabilir mi? (sadece işaretlemek için)
+function canDropOn(t,mi){
+  const m=S.melds[mi];
+  if(!m||!t) return false;
+  if(!myTurn()||S.phase!=='act'||!me().opened||S.staging.length) return false;
+  if(meldOkeySlot(m,t)) return true;          // okey alma: son taşla bile olur
+  if(m.pair) return false;
+  if(me().pairs&&me().proc>=1) return false;
+  if(me().hand.length<=1) return false;       // işlemede atacak taş kalmalı
+  if(!canAdd(m.tiles,t)) return false;
+  return (me().procMap[mi+':'+addSide(m,t)]||0)<2;
+}
+
+function processInto(id,mi){ withPairRight(()=>processInto_(id,mi)); }
+function processInto_(id,mi){
+  if(!myTurn()||S.phase!=='act') return;
+  if(!me().opened){ log('· Önce elini yere açman gerekiyor.'); return; }
+  if(S.staging.length){ log('· Önce hazırlıktaki grupları yere koy ya da geri al.'); return; }
+  const t=me().hand.find(x=>x.id===id), m=S.melds[mi];
+  if(!t||!m) return;
+
+  // 1) Taş, perdeki okeyin tam yerine uyuyorsa okeyi alırsın.
+  //    Elde taş sayısı değişmediği için son taşla da yapılabilir:
+  //    okeyi alıp onu atarak bitirebilirsin (okey attın ×2).
+  const w=meldOkeySlot(m,t);
+  if(w){
+    if(!swapOkey(me(),{mi,wild:w,mine:t})){ log('· Bu okey değiştirilemedi.'); return; }
+    S.selected.clear();
+    log(`Okey senin oldu — yerine ${tileName(t)} girdi.`,true);
+    render(); return;
+  }
+
+  // 2) Normal işleme: perin ucuna ekleme.
+  if(m.pair){ log('· Çift pere tek taş işlenmez.'); return; }
+  if(me().pairs&&me().proc>=1){ log('· Çift açan turda 1 taş işler. Sıra sana geldikçe devam edersin.'); return; }
+  if(!canAdd(m.tiles,t)){ log('· O taş bu pere uymuyor.'); return; }
+  if(me().hand.length<=1){ log('· Atacak taş bırakmalısın.'); return; }
+  const key=mi+':'+addSide(m,t);
+  const used=me().procMap[key]||0;
+  if(used>=2){ log('· O uca bu tur 2 taş işledin, sıra sana gelince devam.'); return; }
+
+  m.tiles.push(t); clearLay(me(),[t]); clearRelay(me(),[t]);
+  me().hand=me().hand.filter(x=>x.id!==t.id);
+  me().procMap[key]=used+1; me().proc++;
+  me().procLog.push({mi,tileId:t.id,key});
+  S.selected.clear();
+  log(`${tileName(t)} taşını ${m.owner===SELF?'kendi perine':(S.players[m.owner].name+' perine')} işledin.`);
+  autoOkey(me());
+  render();
+}
+
 function doProcess(){ withPairRight(doProcess_); }
 function doProcess_(){
   if(!myTurn()||S.phase!=='act'||!me().opened) return;
@@ -1737,28 +1809,33 @@ function doDiscard(auto){
   if(ts.length!==1){ log('· Atmak için tek taş seç.'); return; }
   if(S.staging.length){ log('· Önce grupları aç ya da geri al.'); return; }
   const t=ts[0];
-  if(isLive(t)&&auto!==true&&!confirm('Bu taş yerdeki perlere işliyor. Atarsan 71 ceza yazarsın. Yine de atılsın mı?')) return;
+  // Bu atış eli bitiriyor mu? Elde tek taş kaldıysa bu son taştır.
+  // Bitiren oyuncu tur sonu cezalarını yemez: işlek taş atmak, aldığı taşı
+  // yere indirmemiş olmak, geri aldığı taşı yeniden indirmemiş olmak —
+  // hepsi "eli sürdürüyorsan" cezasıdır, oyunu bitiriyorsan hükmü kalmaz.
+  const bitiyor = me().hand.length===1;
+  if(isLive(t)&&!bitiyor&&auto!==true&&!confirm('Bu taş yerdeki perlere işliyor. Atarsan 71 ceza yazarsın. Yine de atılsın mı?')) return;
   let ciftNow=false;
   if(me().mustOpen&&!me().opened){
     if(auto===true) log('Süre doldu — çift sayılmadın, el normal devam ediyor.',true);
     else { declarePairs(me()); ciftNow=true; log('Aldığın taşla açmadın — çift demiş oldun.',true); }
   }
-  if(me().layNow&&me().pendingLay&&me().hand.some(x=>x.id===me().pendingLay)){
+  if(!bitiyor&&me().layNow&&me().pendingLay&&me().hand.some(x=>x.id===me().pendingLay)){
     me().fine+=71;
     log('Aldığın taşı yere indirmedin — 71 ceza.',true);
   }
-  if(me().mustRelay&&me().hand.some(x=>x.id===me().mustRelay)){
+  if(!bitiyor&&me().mustRelay&&me().hand.some(x=>x.id===me().mustRelay)){
     me().fine+=71;
     log('Geri aldığın taşı yeniden yere indirmedin — 71 ceza.',true);
   }
   me().mustRelay=null;
-  if(me().retracted){ me().fine+=71; log('Yerden taş topladın — 71 ceza.',true); }
+  if(me().retracted&&!bitiyor){ me().fine+=71; log('Yerden taş topladın — 71 ceza.',true); }
   me().pendingLay=null; me().layNow=false; me().retracted=false;
   me().mustOpen=false; S.lastDraw=null;
   me().hand=me().hand.filter(x=>x.id!==t.id);
   me().discards.push(t);
   S.okeyFinish=isWild(t);
-  if(isLive(t)){ t.dead=true; if(auto!==true){ me().fine+=71; log('İşlek taş attın — 71 ceza. Bu taşı kimse alamaz.',true); } }
+  if(isLive(t)&&!bitiyor){ t.dead=true; if(auto!==true){ me().fine+=71; log('İşlek taş attın — 71 ceza. Bu taşı kimse alamaz.',true); } }
   S.selected.clear(); log(`${tileName(t)} attın.`); render();
   if(me().hand.length===0){ endHand(SELF,'Son taşını attın.'); return; }
   advance();
@@ -1889,13 +1966,14 @@ function dropAt(id,r,i){
 let drag=null;
 function clearMarks(){
   document.querySelectorAll('.slot.hot').forEach(x=>x.classList.remove('hot'));
+  document.querySelectorAll('.meld.hot,.meld.no').forEach(x=>x.classList.remove('hot','no'));
   $('fsMine').classList.remove('drop');
 }
 
 function attachDrag(el,id){
   el.dataset.id=id;
   el.addEventListener('pointerdown',e=>{
-    drag={id,x0:e.clientX,y0:e.clientY,moved:false,slot:null,discard:false};
+    drag={id,x0:e.clientX,y0:e.clientY,moved:false,slot:null,discard:false,meld:null};
     try{ el.setPointerCapture(e.pointerId); }catch(_){}
   });
   el.addEventListener('pointermove',e=>{
@@ -1910,10 +1988,18 @@ function attachDrag(el,id){
     const under=document.elementFromPoint(e.clientX,e.clientY);
     el.style.visibility='';
     clearMarks();
-    drag.discard=false; drag.slot=null;
+    drag.discard=false; drag.slot=null; drag.meld=null;
     const mine=under&&under.closest?under.closest('#fsMine'):null;
     if(mine&&myTurn()&&S.phase==='act'&&!S.staging.length){
       drag.discard=true; $('fsMine').classList.add('drop'); return;
+    }
+    // yerdeki bir perin üstünde miyiz? uyuyorsa yeşil, uymuyorsa kırmızı
+    const md=under&&under.closest?under.closest('.meld'):null;
+    if(md&&md.dataset.mi!=null){
+      const mi=+md.dataset.mi, t=me().hand.find(x=>x.id===id);
+      if(canDropOn(t,mi)){ drag.meld=mi; md.classList.add('hot'); }
+      else md.classList.add('no');
+      return;
     }
     let sl=under&&under.closest?under.closest('.slot'):null;
     if(!sl) sl=nearestSlot(e.clientX,e.clientY);
@@ -1926,6 +2012,7 @@ function attachDrag(el,id){
     clearMarks();
     if(d.moved){
       if(d.discard){ S.selected.clear(); S.selected.add(id); render(); doDiscard(false); return; }
+      if(d.meld!=null){ processInto(id,d.meld); return; }
       if(d.slot) dropAt(id,d.slot[0],d.slot[1]);
       render();
     }else{
@@ -2048,8 +2135,9 @@ function render(){
   zones[SELF]=$('mzB'); zones[prevOf(SELF)]=$('mzL');
   zones[(SELF+2)%4]=$('mzT'); zones[nextOf(SELF)]=$('mzR');
   Object.values(zones).forEach(z=>z.innerHTML='');
-  S.melds.forEach(m=>{
+  S.melds.forEach((m,mi)=>{
     const d=document.createElement('div'); d.className='meld'+(m.pair?' pair':'');
+    d.dataset.mi=mi;
     const ord=m.pair?m.tiles:orderMeld(m.tiles);
     const yuzler=meldFaces(ord);
     ord.forEach((t,k)=>d.appendChild(tileEl(t,{sm:true,face:yuzler[k]})));
@@ -2443,7 +2531,7 @@ globalThis.__api={
   get S(){return S;}, setSelf(i){SELF=i;}, get self(){return SELF;},
   setNames(a){ a.forEach((n,i)=>{ if(n) NAMES[i]=n; }); },
   startGame, newHand, botTurn, advance, endHand, render,
-  doDeck, doTake, doUndo, doDiscard, doOpen, doPut, doProcess, doOkey, doCollect,
+  doDeck, doTake, doUndo, doDiscard, doOpen, doPut, doProcess, doOkey, doCollect, processInto,
   applyOpen, stageFromRack, rackBlocks, okeyCheck, okeyCandidates, swapOkey,
   pack, buildPairs, pairCount, validateMeld, validatePair, isWild, eff, tileName,
   threshold, needPairs, pileLeft, isLive, declarePairs, orderMeld,

@@ -510,6 +510,8 @@
   };
   window.doTake = function () { act('take'); };
   window.doDeck = function () { act('deck'); };
+  // taşı yerdeki bir perin üstüne sürükleyince
+  window.processInto = function (id, mi) { act('meldput', { id, mi }); };
 
   window.addEventListener('error', e => {
     try { note('Hata: ' + (e.message || 'bilinmeyen')); } catch (_) {}
