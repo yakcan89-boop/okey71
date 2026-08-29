@@ -463,7 +463,7 @@ details.rules div{padding-top:7px;line-height:1.7}
       <b>Çift moduna geçince:</b> Herkes ya elden bitecek, ya 101 üstü açacak, ya da en az 5 çift açacak. Çiftte sıra 5 → 6 → 7.<br>
       <b>Çiftçinin ayrıcalığı:</b> Çifte giden, üstündeki oyuncunun attığı <b>her taşı</b> sormadan alabilir — çift yapsın yapmasın — ya da ortadan çeker. Buna karşılık <b>çiftçinin attığı taşı yalnızca başka bir çiftçi alabilir</b>; düz açmak isteyen o taşa dokunamaz.<br>
       <b>Ödül (X):</b> En yüksek çifti açan — 7 çift <b>XX</b>, 6 çift <b>X</b>, 5 çift ödülsüz. Normal açışta 101 ve üzeri açanlardan en yükseği <b>X</b> alır. Her X oyun sonunda toplamdan <b>101 puan</b> düşer; tabloda sayı olarak değil X olarak görünür.<br>
-      <b>Ceza:</b> Açamayan 101, düz açan elinde kalanı, <b>çift açan elinde kalanın iki katını</b> yazar. Çift deyip hiç açamayan 101'in iki katını (202).<br>
+      <b>Ceza:</b> Açamayan 101, düz açan elinde kalanı, <b>çift açan elinde kalanın iki katını</b> yazar. Çift deyip hiç açamayan 101'in iki katı (202).<br>
       <b>Masa:</b> Deste biter ve <b>kimse açamamışsa</b> el masaya gider — puan yazılmaz, aynı el yeniden dağıtılır. Biri açmışsa cezalar normal işler.<br>
       <b>Katlama:</b> Cezalar üç durumda ikiye katlanır: hiç kimse açmamışken elden bitiş, çiftle bitiş, ve bitiren son taşı <b>okey</b> atması. Birleşirler — <b>çiftle bitip son taşı okey atan dört katına</b> çıkarır.<br>
       <b>Okey alma:</b> Ayrı bir düğme yok — <b>İşle</b> dediğinde okey kendiliğinden eline gelir. Şart: açmış olacaksın ve okeyin yeri kesinleşmiş olacak. Yerde S12-K12-OKEY varken okey hem maviyi hem sarıyı temsil edebilir; sadece maviyi işlersen okeyi alamazsın, sarı kimdeyse o işleyip alır. İkisi de sendeyse birini işler, öbürüyle okeyi alırsın. <b>Aldığın okeyi o el içinde yere indirmelisin</b> — işlersin, seri ya da çift yaparsın, son taş olarak atarsın. El biterken elindeyse <b>71 ceza</b> yazarsın, üstüne okeyin sayısı elde kalanlara eklenir (gösterge 6 ise okey 7 sayılır). Sen ya da eşin bitirirse ceza yok.<br>
@@ -1356,6 +1356,7 @@ function doDeck(){
   bumpTimer();
   log(`Desteden ${tileName(t)} çektin.`); render();
 }
+
 function doTake(){
   if(!myTurn()||S.phase!=='draw') return;
   const prev=S.players[prevOf(SELF)];
@@ -1363,34 +1364,46 @@ function doTake(){
   const top=prev.discards[prev.discards.length-1];
   if(top.dead){ log('· O taş işlek atıldığı için ölü — alınamaz.'); return; }
 
-  const take=(note)=>{
+  const takeAction = (note) => {
     const t=takeDiscard(me());
     S.phase='act'; me().openedNow=false; me().proc=0; me().procMap={};
     me().retracted=false; me().layNow=false; me().procLog=[]; me().mustRelay=null;
     S.lastDraw={from:'floor',tile:t,owner:prev.i,needAsk:!prev.opened&&!prev.pairs,asked:false};
     snapTurn();
-    if(!me().opened&&!me().pairs) me().mustOpen=true;   // ya açacak ya çift diyecek
-    me().pendingLay = (prev.opened&&!me().opened) ? t.id : null;   // açandan alınan taş yere inmeli
+    if(!me().opened&&!me().pairs) me().mustOpen=true;   
+    me().pendingLay = (prev.opened&&!me().opened) ? t.id : null;   
     bumpTimer();
     log(`Yerden ${tileName(t)} aldın${note?' — '+note:''}.`);
     render();
   };
 
-  // çiftçinin attığı taşı sadece çifte giden alabilir
+  // Çiftçinin attığı taşı sadece çifte giden alabilir
   if(prev.pairs&&!me().pairs){
     log(`· ${prev.name} çifte gidiyor — attığı taşı sadece çifte giden alabilir.`);
     return;
   }
-  if(me().pairs) return take();          // çifte giden her taşı alır
+  if(me().pairs) return takeAction();          
 
-  if(me().opened){
-    // açmış oyuncu serbestçe alır; çift hakkı yere indirirken sorulur
-    take('bu tur yere indir');
-    me().pendingLay=top.id; me().layNow=true;
-    if(S.lastDraw) S.lastDraw.needAsk=!prev.opened&&!prev.pairs;
+  // ÖNEMLİ KURAL: Eğer atan oyuncu HENÜZ AÇMADIYSA, taşı alan kişi (siz) 
+  // açacak veya hamle yapacaksa atıcıya (veya oyuncu geneline) mutlaka sorulmalıdır!
+  if(!prev.opened && !prev.pairs){
+    askPairRight(prev, me(), top, ok => {
+      if(!ok){
+        log(`${prev.name} çift dedi, taşı alamadın.`, true);
+        return;
+      }
+      takeAction('onay alındı');
+    });
     return;
   }
-  take('açacaksan yere indir, yoksa çift sayılırsın');
+
+  if(me().opened){
+    takeAction('bu tur yere indir');
+    me().pendingLay=top.id; me().layNow=true;
+    return;
+  }
+  
+  takeAction('açacaksan yere indir, yoksa çift sayılırsın');
 }
 
 function snapTurn(){
