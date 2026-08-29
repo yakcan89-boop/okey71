@@ -6,7 +6,7 @@
 <title>71 Okey — Çiftli</title>
 <style>
 :root{
-  --tw: clamp(30px, 8vw, 46px);
+  --tw: clamp(28px, min(8vw, 9.5dvh), 46px);
   --th: calc(var(--tw) * 1.36);
   --sw: 24px; --sh: 33px;
   --c0:#d0202f; --c1:#1b1b1b; --c2:#1f9ad6; --c3:#e0a91b;
@@ -276,6 +276,61 @@ details.rules{margin-top:10px;font-size:12px;opacity:.75}
 details.rules summary{cursor:pointer;font-size:10px;letter-spacing:.14em;text-transform:uppercase}
 details.rules div{padding-top:7px;line-height:1.7}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+
+/* ============ mobil yerleşim ============
+   .tablezone ve .handzone masaüstünde hiçbir şeyi değiştirmez;
+   display:contents sayesinde sanki yoklarmış gibi davranırlar.
+   Yalnız yatay telefonda iki sütuna ayrılmak için kullanılırlar. */
+.tablezone,.handzone{display:contents}
+
+/* ---- dikey telefon: masaya tam genişlik ---- */
+@media (orientation:portrait) and (max-width:700px){
+  body{padding:6px 6px calc(10px + env(safe-area-inset-bottom))}
+
+  /* üç rakip tek sıra halinde en üste; masa altta tam genişlikte */
+  .board{flex-wrap:wrap;gap:5px;margin-top:7px}
+  .center{display:contents}
+  .vseat{
+    width:auto;flex:1 1 0;min-width:0;order:1;
+    flex-direction:row;justify-content:center;align-items:center;gap:6px;padding:5px 6px;
+  }
+  .hseat{flex:1 1 0;min-width:0;order:1;padding:5px 6px}
+  .tablerow{order:2;flex:1 1 100%;min-width:0}
+
+  .side{width:72px;padding:6px 4px}
+
+  /* perler artık kırpılmıyor: masanın tamamı tek bir kaydırma alanı */
+  .felt{
+    max-height:36dvh;overflow-y:auto;overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  }
+  .felt::-webkit-scrollbar{width:4px}
+  .felt::-webkit-scrollbar-thumb{background:rgba(255,255,255,.3);border-radius:3px}
+  .felt .mark{display:none}
+  .feltgrid{min-height:0}
+  .mzone{max-height:none;overflow:visible}
+  .zlabel{width:100%;text-align:center;align-self:auto}
+}
+
+/* ---- yatay telefon: masa solda, takoz ve düğmeler sağda ---- */
+@media (orientation:landscape) and (max-height:600px){
+  body{padding:5px 6px calc(6px + env(safe-area-inset-bottom))}
+  .wrap{
+    max-width:none;display:flex;flex-wrap:wrap;align-items:flex-start;
+    column-gap:10px;
+  }
+  .topbar{width:100%;margin-bottom:5px}
+  .tablezone,.handzone{display:block;flex:1 1 0;min-width:0}
+  .log,details.rules{width:100%}
+  .log{height:52px}
+
+  .felt{min-height:80px;max-height:30dvh;overflow-y:auto;overflow-x:hidden}
+  .felt .mark{display:none}
+  .feltgrid{min-height:0}
+  .mzone{max-height:none;overflow:visible}
+  .rack{margin-bottom:6px}
+  .controls button{padding:7px 9px;font-size:12px}
+}
 </style>
 </head>
 <body>
@@ -291,6 +346,7 @@ details.rules div{padding-top:7px;line-height:1.7}
     <div class="pill off" id="pMe">Açmadın</div>
   </div>
 
+  <div class="tablezone">
   <div class="board">
     <div class="vseat" id="seatL"></div>
     <div class="center">
@@ -326,7 +382,9 @@ details.rules div{padding-top:7px;line-height:1.7}
     <div class="fslot" id="fsTake"></div>
     <div class="fslot" id="fsMine"></div>
   </div>
+  </div><!-- /tablezone -->
 
+  <div class="handzone">
   <div class="handinfo" id="handinfo"></div>
 
   <div class="rack">
@@ -362,6 +420,7 @@ details.rules div{padding-top:7px;line-height:1.7}
     <button id="btnSortP">Çift diz</button>
     <button id="btnScore">Puan tablosu</button>
   </div>
+  </div><!-- /handzone -->
 
   <div class="log" id="log"></div>
 
@@ -1901,11 +1960,10 @@ function render(){
     zones[m.owner].appendChild(d);
   });
   S.players.forEach((_,i)=>{
-    if(i===SELF||!zones[i]) return;
-    if(!zones[i].children.length){
-      const l=document.createElement('div'); l.className='zlabel'; l.textContent=NAMES[i];
-      zones[i].appendChild(l);
-    }
+    if(!zones[i]) return;
+    const l=document.createElement('div'); l.className='zlabel';
+    l.textContent = (i===SELF) ? 'Sen' : NAMES[i];
+    zones[i].insertBefore(l, zones[i].firstChild);
   });
 
   syncRack();

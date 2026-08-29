@@ -16,6 +16,12 @@ if (!HTML_PATH) { console.error('okey71.html bulunamadı'); process.exit(1); }
 const HTML   = fs.readFileSync(HTML_PATH, 'utf8');
 const SCRIPT = HTML.match(/<script>([\s\S]*?)<\/script>/)[1];
 
+/* ---------- zaman ayarları ---------- */
+const POLL_MS    = 25000;    // uzun yoklamanın boşa çıkma süresi
+const AWOL_MS    = 70000;    // bu kadar süre hiç yoklama gelmezse oyuncu kopmuş sayılır
+const DEAD_MS    = 300000;   // odadaki tüm insanlar bu kadar süre yoksa oda silinir
+const SWEEP_MS   = 10000;    // kontrol sıklığı
+
 /* ---------- sunucuda çalışan sahte ekran ---------- */
 function stubEl() {
   const el = {
@@ -46,11 +52,13 @@ function makeRoom(teams) {
   const code = roomCode();
   const room = {
     code, teams: !!teams,
-    seats: [null, null, null, null],   // {pid, name} ya da null (bot)
+    seats: [null, null, null, null],   // {pid, name, lastSeen} ya da null (bot)
+    owner: null,                       // oda sahibinin pid'i (koltuk değişse de sabit)
     version: 0,
     waiters: [],                       // bekleyen uzun-yoklama istekleri
     log: [],
     started: false,
+    createdAt: Date.now(),
     api: null
   };
 
@@ -111,6 +119,16 @@ function seatOf(room, pid) {
   return room.seats.findIndex(s => s && s.pid === pid);
 }
 
+function closeRoom(room, sebep) {
+  rooms.delete(room.code);
+  const ws = room.waiters;
+  room.waiters = [];
+  for (const w of ws) {
+    clearTimeout(w.timer);
+    try { send(w.res, 200, { gone: true, reason: sebep || '' }); } catch (e) {}
+  }
+}
+
 function viewFor(room, seat) {
   const S = room.api.S;
   const hide = t => ({ id: t.id, h: 1 });
@@ -120,6 +138,7 @@ function viewFor(room, seat) {
     teams: room.teams,
     started: room.started,
     seat,
+    owner: !!(room.seats[seat] && room.seats[seat].pid === room.owner),
     seats: room.seats.map((s, i) => ({ name: s ? s.name : 'Bot ' + (i + 1), bot: !s })),
     handNo: S.handNo, dealer: S.dealer, turn: S.turn, phase: S.phase,
     over: S.over, doubled: S.doubled, topOpen: S.topOpen, pairsMax: S.pairsMax,
@@ -178,10 +197,12 @@ function startRoom(room) {
   S.dealer = Math.floor(Math.random() * 4);
   api.newHand();
   S.players.forEach((p, i) => { p.bot = !room.seats[i]; });
+  const now = Date.now();
+  room.seats.forEach(s => { if (s) s.lastSeen = now; });
   const kisi = room.seats.filter(Boolean).length;
   room.log.push({
     m: `Oda ${room.code} — oyun başladı. ${kisi} kişi, ${4 - kisi} bot.`,
-    big: true, t: Date.now()
+    big: true, t: now
   });
   push(room);
   if (S.players[S.turn].bot) setTimeout(() => room.api.botTurn(), 700);
@@ -256,6 +277,50 @@ function readBody(req) {
   });
 }
 
+/* ---------- kopma denetimi ----------
+   Uzun yoklamanın boşa çıkması kopma DEĞİLDİR; oyunda 25 sn hiçbir değişiklik
+   olmaması gayet normaldir. Kopma, oyuncudan hiç yoklama isteği gelmemesidir.
+   Bu yüzden karar burada, ayrı bir süpürmede veriliyor.                        */
+setInterval(() => {
+  const now = Date.now();
+  for (const room of Array.from(rooms.values())) {
+    if (!room.started) {
+      // henüz başlamamış ve kimse dokunmuyorsa odayı bir süre sonra topla
+      const sonTemas = Math.max(room.createdAt,
+        ...room.seats.filter(Boolean).map(s => s.lastSeen || 0));
+      if (now - sonTemas > DEAD_MS) closeRoom(room, 'bos');
+      continue;
+    }
+
+    const S = room.api.S;
+    const insanlar = room.seats.filter(Boolean);
+
+    // hiç kimse uzun süredir uğramıyorsa oda kendiliğinden kapansın
+    if (insanlar.length && insanlar.every(s => now - (s.lastSeen || 0) > DEAD_MS)) {
+      closeRoom(room, 'terk');
+      continue;
+    }
+
+    let degisti = false;
+    room.seats.forEach((s, i) => {
+      if (!s) return;                        // zaten bot koltuğu
+      if (S.players[i].bot) return;          // zaten bota devredilmiş
+      if (now - (s.lastSeen || 0) < AWOL_MS) return;
+      S.players[i].bot = true;
+      room.log.push({ m: `· ${s.name} bağlantısı koptu, yerine bot bakıyor.`, t: now });
+      degisti = true;
+    });
+
+    if (degisti) {
+      push(room);
+      if (!S.over && S.players[S.turn].bot) {
+        S.busy = false;
+        try { room.api.botTurn(); } catch (_) {}
+      }
+    }
+  }
+}, SWEEP_MS);
+
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
   const p = u.pathname;
@@ -275,7 +340,8 @@ const server = http.createServer(async (req, res) => {
     const d = await readBody(req);
     const room = makeRoom(!!d.teams);
     const pid = 'p' + (++nextRoom) + Math.random().toString(36).slice(2, 7);
-    room.seats[0] = { pid, name: (d.name || 'Oyuncu').slice(0, 12) };
+    room.seats[0] = { pid, name: (d.name || 'Oyuncu').slice(0, 12), lastSeen: Date.now() };
+    room.owner = pid;
     return send(res, 200, { code: room.code, pid, seat: 0 });
   }
 
@@ -287,16 +353,45 @@ const server = http.createServer(async (req, res) => {
     const seat = room.seats.findIndex(s => !s);
     if (seat < 0) return send(res, 400, { err: 'Masa dolu.' });
     const pid = 'p' + (++nextRoom) + Math.random().toString(36).slice(2, 7);
-    room.seats[seat] = { pid, name: (d.name || 'Oyuncu').slice(0, 12) };
+    room.seats[seat] = { pid, name: (d.name || 'Oyuncu').slice(0, 12), lastSeen: Date.now() };
     push(room);
     return send(res, 200, { code: room.code, pid, seat });
+  }
+
+  if (p === '/api/mode' && req.method === 'POST') {
+    const d = await readBody(req);
+    const room = rooms.get(String(d.code || '').toUpperCase());
+    if (!room) return send(res, 404, { err: 'Oda yok.' });
+    if (d.pid !== room.owner) return send(res, 403, { err: 'Sadece oda sahibi değiştirir.' });
+    if (room.started) return send(res, 400, { err: 'Oyun başladı.' });
+    room.teams = !!d.teams;
+    push(room);
+    return send(res, 200, { ok: true, teams: room.teams });
+  }
+
+  if (p === '/api/seat' && req.method === 'POST') {
+    const d = await readBody(req);
+    const room = rooms.get(String(d.code || '').toUpperCase());
+    if (!room) return send(res, 404, { err: 'Oda yok.' });
+    if (room.started) return send(res, 400, { err: 'Oyun başladı, koltuk değişmez.' });
+    const cur = seatOf(room, d.pid);
+    if (cur < 0) return send(res, 403, { err: 'Masada değilsin.' });
+    const hedef = parseInt(d.seat, 10);
+    if (!(hedef >= 0 && hedef < 4)) return send(res, 400, { err: 'Geçersiz koltuk.' });
+    if (hedef === cur) return send(res, 200, { ok: true, seat: cur });
+    if (room.seats[hedef]) return send(res, 400, { err: 'O koltuk dolu.' });
+    room.seats[hedef] = room.seats[cur];
+    room.seats[cur] = null;
+    room.seats[hedef].lastSeen = Date.now();
+    push(room);
+    return send(res, 200, { ok: true, seat: hedef });
   }
 
   if (p === '/api/start' && req.method === 'POST') {
     const d = await readBody(req);
     const room = rooms.get(String(d.code || '').toUpperCase());
     if (!room) return send(res, 404, { err: 'Oda yok.' });
-    if (seatOf(room, d.pid) !== 0) return send(res, 403, { err: 'Sadece oda sahibi başlatır.' });
+    if (d.pid !== room.owner) return send(res, 403, { err: 'Sadece oda sahibi başlatır.' });
     if (room.started) return send(res, 400, { err: 'Zaten başladı.' });
     startRoom(room);
     return send(res, 200, { ok: true });
@@ -306,12 +401,8 @@ const server = http.createServer(async (req, res) => {
     const d = await readBody(req);
     const room = rooms.get(String(d.code || '').toUpperCase());
     if (!room) return send(res, 404, { err: 'Oda yok.' });
-    if (seatOf(room, d.pid) !== 0) return send(res, 403, { err: 'Sadece oda sahibi kapatabilir.' });
-    rooms.delete(room.code);
-    room.waiters.forEach(w => {
-      try { send(w.res, 200, { gone: true }); } catch(e){}
-    });
-    room.waiters = [];
+    if (d.pid !== room.owner) return send(res, 403, { err: 'Sadece oda sahibi kapatabilir.' });
+    closeRoom(room, 'kapatildi');
     return send(res, 200, { ok: true });
   }
 
@@ -321,6 +412,7 @@ const server = http.createServer(async (req, res) => {
     if (!room || !room.started) return send(res, 400, { err: 'Oda hazır değil.' });
     const seat = seatOf(room, d.pid);
     if (seat < 0) return send(res, 403, { err: 'Masada değilsin.' });
+    room.seats[seat].lastSeen = Date.now();
     return send(res, 200, doAction(room, seat, d.type, d.data));
   }
 
@@ -330,6 +422,7 @@ const server = http.createServer(async (req, res) => {
     if (!room || !room.pendingAsk) return send(res, 400, { err: 'Bekleyen soru yok.' });
     const seat = seatOf(room, d.pid);
     if (seat !== room.pendingAsk.seat) return send(res, 403, { err: 'Soru sana değil.' });
+    room.seats[seat].lastSeen = Date.now();
     const ask = room.pendingAsk;
     room.pendingAsk = null;
     room.api.setSelf(seat);
@@ -343,6 +436,8 @@ const server = http.createServer(async (req, res) => {
     const d = await readBody(req);
     const room = rooms.get(String(d.code || '').toUpperCase());
     if (!room || !room.pendingNext) return send(res, 400, { err: 'Bekleyen el yok.' });
+    const seat = seatOf(room, d.pid);
+    if (seat >= 0) room.seats[seat].lastSeen = Date.now();
     const fn = room.pendingNext.fn;
     room.pendingNext = null;
     try { fn(); } catch (e) {}
@@ -355,12 +450,13 @@ const server = http.createServer(async (req, res) => {
     const pid  = u.searchParams.get('pid');
     const v    = parseInt(u.searchParams.get('v') || '0', 10);
     if (!room) return send(res, 404, { err: 'Oda yok.' });
-    
+
     let seat = seatOf(room, pid);
     if (seat < 0 && room.started) {
+      // koltuğu bilinmeyen biri: boşta bot koltuğu varsa oraya otursun
       const emptySeat = room.seats.findIndex(s => !s);
       if (emptySeat >= 0) {
-        room.seats[emptySeat] = { pid, name: 'Oyuncu' };
+        room.seats[emptySeat] = { pid, name: 'Oyuncu', lastSeen: Date.now() };
         seat = emptySeat;
         room.api.S.players[seat].bot = false;
         push(room);
@@ -370,39 +466,29 @@ const server = http.createServer(async (req, res) => {
 
     room.seats[seat].lastSeen = Date.now();
     const S = room.api.S;
+
+    // kopmuş sayılıp bota devredilen oyuncu geri döndüyse koltuğunu geri alsın
+    if (room.started && S.players[seat].bot) {
+      S.players[seat].bot = false;
+      room.log.push({ m: `· ${room.seats[seat].name} geri döndü.`, t: Date.now() });
+      push(room);
+    }
+
     if (room.started && S.busy && room.seats[S.turn]) {
       S.busy = false;
       push(room);
     }
     if (room.version > v) return send(res, 200, viewFor(room, seat));
-    
+
     const w = { pid, res };
     w.timer = setTimeout(() => {
       room.waiters = room.waiters.filter(x => x !== w);
-      
+      // Zaman aşımı kopma değildir: oyuncu hâlâ burada, sadece oyunda değişiklik yok.
       const sIndex = seatOf(room, pid);
-      if (sIndex >= 0 && room.started && !S.over) {
-        const seatObj = room.seats[sIndex];
-        if (seatObj && Date.now() - (seatObj.lastSeen || 0) > 20000) {
-          // Eğer oda sahibi (0. koltuk) 20 saniyedir oyunda yoksa odayı tamamen kapat
-          if (sIndex === 0) {
-            rooms.delete(room.code);
-            room.waiters.forEach(waiter => {
-              try { send(waiter.res, 200, { gone: true }); } catch(e){}
-            });
-            room.waiters = [];
-          } else {
-            S.players[sIndex].bot = true;
-            if (S.turn === sIndex && S.phase === 'draw') {
-              try { S.busy = false; S.api.botTurn(); } catch(_) {}
-            }
-          }
-        }
-      }
-
+      if (sIndex >= 0) room.seats[sIndex].lastSeen = Date.now();
       try { send(res, 200, { noChange: true, version: room.version }); } catch (e) {}
-    }, 25000);
-    
+    }, POLL_MS);
+
     room.waiters.push(w);
     req.on('close', () => {
       clearTimeout(w.timer);
@@ -418,4 +504,4 @@ server.listen(PORT, () => {
   console.log('71 Okey sunucusu çalışıyor:  http://localhost:' + PORT);
 });
 
-module.exports = { server, rooms, makeRoom, startRoom, doAction, viewFor };
+module.exports = { server, rooms, makeRoom, startRoom, doAction, viewFor, closeRoom };

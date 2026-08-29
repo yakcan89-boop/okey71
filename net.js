@@ -143,25 +143,77 @@
     }
   }
 
+  function seatRow(v, i) {
+    const s = v.seats[i];
+    const ben = (i === v.seat);
+    const bos = s.bot;
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;' +
+      'padding:8px 10px;border-radius:8px;margin-bottom:5px;' +
+      'background:rgba(255,255,255,' + (ben ? '.2' : '.07') + ')">' +
+      '<span style="flex:1;text-align:left">' +
+        '<b style="opacity:.5;margin-right:6px">' + (i + 1) + '.</b>' +
+        (bos ? '<i style="opacity:.55">boş — bot oynar</i>' : s.name) +
+      '</span>' +
+      (ben ? '<b style="color:#f5c33b;font-size:13px">sen</b>'
+           : (bos ? '<button data-otur="' + i + '" style="font:inherit;font-size:12px;font-weight:700;' +
+                    'padding:5px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.3);' +
+                    'background:rgba(255,255,255,.14);color:#eaf6ff;cursor:pointer">Buraya otur</button>'
+                  : '')) +
+      '</div>';
+  }
+
   function showWaiting(v) {
     const link = location.origin + '/?oda=' + CODE;
-    const list = v.seats.map((s, i) =>
-      '<div style="display:flex;justify-content:space-between;padding:7px 10px;border-radius:8px;margin-bottom:5px;' +
-      'background:rgba(255,255,255,' + (i === v.seat ? '.18' : '.07') + ')">' +
-      '<span>' + (i + 1) + '. ' + (s.bot ? '<i style="opacity:.55">boş — bot</i>' : s.name) + '</span>' +
-      (i === v.seat ? '<b style="color:#f5c33b">sen</b>' : '') + '</div>').join('');
+    const baslik = t =>
+      '<div style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;opacity:.55;' +
+      'margin:10px 0 5px;text-align:left">' + t + '</div>';
+
+    let list;
+    if (v.teams) {
+      // karşılıklı oturanlar eş: 1–3 bir takım, 2–4 diğer takım
+      list = baslik('A takımı') + seatRow(v, 0) + seatRow(v, 2) +
+             baslik('B takımı') + seatRow(v, 1) + seatRow(v, 3);
+    } else {
+      list = [0, 1, 2, 3].map(i => seatRow(v, i)).join('');
+    }
+
     lobbyHTML(
-      '<div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;opacity:.6">' +
-        (v.teams ? 'eşli oyun · oda kodu' : 'tek kişilik · oda kodu') + '</div>' +
-      '<div style="font-size:44px;font-weight:900;letter-spacing:.12em;margin:2px 0 14px">' + CODE + '</div>' +
+      '<div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;opacity:.6">oda kodu</div>' +
+      '<div style="font-size:44px;font-weight:900;letter-spacing:.12em;margin:2px 0 10px">' + CODE + '</div>' +
+      (v.owner
+        ? '<div style="display:flex;gap:6px;margin-bottom:6px">' +
+            '<button id="lbTek2" style="' + BTN2 + ';margin-top:0">Tek kişilik</button>' +
+            '<button id="lbEsli2" style="' + BTN2 + ';margin-top:0">Eşli</button>' +
+          '</div>'
+        : '<div style="font-size:12px;opacity:.7;margin-bottom:6px">' +
+          (v.teams ? 'Eşli oyun — karşılıklı oturanlar eş' : 'Tek kişilik — herkes kendi başına') + '</div>') +
       list +
+      '<div style="font-size:11px;opacity:.55;margin-top:8px">Boş bir koltuğa dokunarak yerini değiştirebilirsin.</div>' +
       '<button id="lbCopy" style="' + BTN2 + '">Daveti kopyala</button>' +
-      (v.seat === 0
+      (v.owner
         ? '<button id="lbStart" style="' + BTN + '">Oyunu başlat</button>' +
           '<div style="font-size:11px;opacity:.6;margin-top:8px">Boş koltuklar bot olarak oynar.</div>'
         : '<div style="font-size:13px;opacity:.75;margin-top:14px">Oda sahibi başlatınca oyun açılacak…</div>') +
       '<button id="lbLeave" style="font:inherit;font-size:12px;padding:6px;border-radius:6px;border:none;background:rgba(255,0,0,0.2);color:#ffb4ae;cursor:pointer;width:100%;margin-top:14px">Odadan Çık / Yeni Oda</button>'
     );
+
+    lob.querySelectorAll('[data-otur]').forEach(b => {
+      b.onclick = async () => {
+        b.disabled = true;
+        const d = await post('/api/seat', { code: CODE, pid: PID, seat: +b.dataset.otur });
+        if (d && d.err) { note(d.err); b.disabled = false; }
+      };
+    });
+
+    if (v.owner) {
+      const t = document.getElementById('lbTek2'), e = document.getElementById('lbEsli2');
+      const on = 'linear-gradient(180deg,#f5c33b,#a9761a)', off = 'rgba(255,255,255,.12)';
+      t.style.background = v.teams ? off : on; t.style.color = v.teams ? '#eaf6ff' : '#3a2503';
+      e.style.background = v.teams ? on : off; e.style.color = v.teams ? '#3a2503' : '#eaf6ff';
+      t.onclick = () => post('/api/mode', { code: CODE, pid: PID, teams: false });
+      e.onclick = () => post('/api/mode', { code: CODE, pid: PID, teams: true });
+    }
+
     const c = document.getElementById('lbCopy');
     if (c) c.onclick = () => {
       const t = 'Gel 71 Okey oynayalım. Oda: ' + CODE + '\n' + link;
@@ -169,7 +221,10 @@
       c.textContent = 'Kopyalandı';
     };
     const st = document.getElementById('lbStart');
-    if (st) st.onclick = () => post('/api/start', { code: CODE, pid: PID });
+    if (st) st.onclick = async () => {
+      const d = await post('/api/start', { code: CODE, pid: PID });
+      if (d && d.err) note(d.err);
+    };
 
     const lv = document.getElementById('lbLeave');
     if (lv) lv.onclick = () => {
@@ -198,13 +253,13 @@
     api.setSelf(v.seat);
     api.render();
     paintLog(v.log);
-    checkCloseButton(v.seat);
+    checkCloseButton(v.owner);
   }
 
   // Oda sahibine oyun ekranında sağ üstte "Masayı Kapat" butonu ekler
-  function checkCloseButton(seat) {
+  function checkCloseButton(sahip) {
     let btn = document.getElementById('btnCloseRoom');
-    if (seat === 0) {
+    if (sahip) {
       if (!btn) {
         btn = document.createElement('button');
         btn.id = 'btnCloseRoom';
@@ -273,21 +328,56 @@
   }
 
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  let VER = -1, RUNNING = false;
+  let VER = -1, RUNNING = false, STOP = false;
 
-  function handle(v) {
-    if (v.gone) {
+  /* ---------- bağlantı rozeti ---------- */
+  function badge(msg) {
+    let b = document.getElementById('netBadge');
+    if (!msg) { if (b) b.remove(); return; }
+    if (!b) {
+      b = document.createElement('div');
+      b.id = 'netBadge';
+      b.style.cssText = 'position:fixed;left:8px;top:8px;z-index:190;font:700 11px/1.4 ' +
+        '"Trebuchet MS",Arial,sans-serif;padding:5px 9px;border-radius:6px;' +
+        'background:rgba(224,87,79,.9);color:#fff;pointer-events:none';
+      document.body.appendChild(b);
+    }
+    b.textContent = msg;
+  }
+
+  /* ---------- bağlantı koptu ekranı ----------
+     Kimlik (pid) burada SİLİNMEZ. Oyuncu "Yeniden bağlan" diyerek
+     aynı koltuğa geri dönebilsin.                                   */
+  function showLost(msg, canRetry) {
+    STOP = true;
+    badge(null);
+    const cb = document.getElementById('btnCloseRoom');
+    if (cb) cb.remove();
+    lob.style.display = '';
+    lobbyHTML(
+      '<div style="font-size:15px;line-height:1.6;margin-bottom:6px">' + msg + '</div>' +
+      (CODE ? '<div style="font-size:12px;opacity:.6;margin-bottom:10px">Oda: ' + CODE + '</div>' : '') +
+      (canRetry ? '<button id="lbRetry" style="' + BTN + '">Yeniden bağlan</button>' : '') +
+      '<button id="lbBack" style="' + BTN2 + '">Lobiye dön</button>'
+    );
+    const rt = document.getElementById('lbRetry');
+    if (rt) rt.onclick = () => {
+      lobbyHTML('<div style="font-size:15px">Bağlanılıyor…</div>');
+      VER = -1;
+      connect();
+    };
+    document.getElementById('lbBack').onclick = () => {
       localStorage.removeItem('okey_code');
       localStorage.removeItem('okey_pid');
       location.reload();
-      return;
-    }
-    try { handle_(v); } catch (e) { note('Ekran hatası: ' + e.message); }
+    };
   }
+
   function handle_(v) {
     SEAT = v.seat;
-    if (!v.started) { showWaiting(v); return; }
-    if (!STARTED) { STARTED = true; lob.style.display = 'none'; bind(); }
+    if (!v.started) { lob.style.display = ''; showWaiting(v); return; }
+    if (!STARTED) { STARTED = true; bind(); }
+    lob.style.display = 'none';
     apply(v);
     if (v.ask) showAsk(v.ask);
     else if (v.next) showNext(v.next);
@@ -296,27 +386,60 @@
   async function connect() {
     if (RUNNING) return;
     RUNNING = true;
-    while (true) {
+    STOP = false;
+    let fails = 0;
+
+    while (!STOP) {
+      let r, d;
       try {
-        const r = await fetch('/poll?code=' + CODE + '&pid=' + PID + '&v=' + VER);
-        const d = await r.json();
-        if (d.version != null) VER = d.version;
-        if (d.noChange) continue;
-        if (d.err) {
-          if (d.err.includes('Oda') || d.err.includes('bulunamadı')) {
-            localStorage.removeItem('okey_code');
-            localStorage.removeItem('okey_pid');
-            location.reload();
-          }
-          await sleep(1500);
-          continue;
-        }
-        handle(d);
+        r = await fetch('/poll?code=' + CODE + '&pid=' + PID + '&v=' + VER);
       } catch (e) {
-        await sleep(1500);
+        fails++;
+        badge(fails > 1 ? 'bağlantı yok — deneniyor' : null);
+        await sleep(Math.min(1200 * fails, 6000));
+        continue;
       }
+
+      if (r.status === 404) {                    // oda sunucuda yok
+        fails++;
+        if (fails >= 3) {
+          showLost('Oda sunucuda bulunamadı. Sunucu yeniden başlamış ya da masa kapatılmış olabilir.', false);
+          break;
+        }
+        await sleep(2000);
+        continue;
+      }
+
+      try { d = await r.json(); }
+      catch (e) { fails++; await sleep(1500); continue; }
+
+      fails = 0;
+      badge(null);
+
+      if (d.gone) {
+        showLost(d.reason === 'kapatildi'
+          ? 'Oda sahibi masayı kapattı.'
+          : 'Masadaki yerin düştü. Yeniden bağlanmayı deneyebilirsin.', d.reason !== 'kapatildi');
+        break;
+      }
+      if (d.version != null) VER = d.version;
+      if (d.noChange) continue;
+      if (d.err) { await sleep(1500); continue; }
+
+      try { handle_(d); }
+      catch (e) { note('Ekran hatası: ' + e.message); }
     }
+
+    RUNNING = false;
   }
+
+  // Telefon uykuya girip döndüğünde yoklamayı hemen canlandır
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !RUNNING && !STOP && CODE && PID) connect();
+  });
+  window.addEventListener('online', () => {
+    if (!RUNNING && !STOP && CODE && PID) connect();
+  });
 
   function flash(msg) {
     const box = document.getElementById('log');
