@@ -105,7 +105,15 @@ function makeRoom(teams) {
   ctx.showVeil = (title, html, btn, fn) => { room.pendingNext = { title, html, fn }; push(room); };
   ctx.askVeil = (title, html, buttons) => {
     const seat = (api.S.askSeat != null) ? api.S.askSeat : api.self;
-    room.pendingAsk = { seat, title, html, buttons: buttons.map(b => b.t) , fns: buttons };
+    // actor: soruyu doğuran hamleyi yapan koltuk (soruyu CEVAPLAYAN değil).
+    // Cevap dönünce motor bu koltukla devam etmeli, yoksa açış yanlış kişiye yazılır.
+    // auto: cevap veren koltuk kopup bota devredilirse basılacak güvenli düğme
+    // (her iki soruda da altın renkli olan seçenek "durumu büyütmeyen" cevaptır).
+    const auto = buttons.findIndex(b => b.cls === 'gold');
+    room.pendingAsk = {
+      seat, actor: api.self, auto: auto < 0 ? buttons.length - 1 : auto,
+      title, html, buttons: buttons.map(b => b.t), fns: buttons
+    };
     api.S.askSeat = null;
     push(room);
   };
@@ -220,8 +228,26 @@ const ACTIONS = {
   discard: (api, d) => { api.S.selected = new Set([d.id]); api.doDiscard(false); }
 };
 
+// Başarısız bir açış/koyma denemesinden sonra taşlar S.staging'de kalıyor ve
+// oyuncunun elinden düşmüş oluyordu (tarayıcıda hazırlık alanı görünür, ağ
+// üzerinden görünmüyor). Kalan varsa ele geri konuyor.
+function stagingGeriVer(api, seat) {
+  const S = api.S;
+  if (!S.staging || !S.staging.length) return 0;
+  const p = S.players[seat];
+  let n = 0;
+  for (const g of S.staging) {
+    for (const t of g.tiles) {
+      if (!p.hand.some(x => x.id === t.id)) { p.hand.push(t); n++; }
+    }
+  }
+  S.staging = [];
+  return n;
+}
+
 function stage(api, groups) {
   const S = api.S;
+  stagingGeriVer(api, api.self);
   S.staging = [];
   if (!groups || !groups.length) return;
   const me = S.players[api.self];
@@ -249,7 +275,11 @@ function doAction(room, seat, type, data) {
                    melds: S.melds.length, log: room.log.length };
   api.setSelf(seat);
   try { fn(api, data || {}); }
-  catch (e) { api.setSelf(0); return { ok: false, err: 'Hata: ' + e.message }; }
+  catch (e) { stagingGeriVer(api, seat); api.setSelf(0); return { ok: false, err: 'Hata: ' + e.message }; }
+  // Açış başarılıysa motor staging'i kendisi boşaltır. Hâlâ doluysa ya hamle
+  // olmadı (baraj yetmedi vb.) ya da çift hakkı sorusu bekliyor. Soru yoksa
+  // taşlar oyuncunun eline geri dönmeli, yoksa kayboluyorlar.
+  if (!room.pendingAsk) stagingGeriVer(api, seat);
   api.setSelf(0);
 
   const after = { hand: S.players[seat].hand.length, turn: S.turn, phase: S.phase,
@@ -312,6 +342,18 @@ setInterval(() => {
     });
 
     if (degisti) {
+      // Soru, kopan oyuncuya sorulmuş olabilir. Kimse cevaplayamayacağı için
+      // masa sonsuza kadar kilitlenir; güvenli seçeneği bot adına basıyoruz.
+      if (room.pendingAsk && S.players[room.pendingAsk.seat].bot) {
+        const ask = room.pendingAsk;
+        room.pendingAsk = null;
+        room.log.push({ m: `· ${S.players[ask.seat].name} cevap veremedi — soru kendiliğinden geçildi.`, t: now });
+        const aktor = ask.actor != null ? ask.actor : ask.seat;
+        room.api.setSelf(aktor);
+        try { ask.fns[ask.auto].fn(); } catch (_) {}
+        if (!room.pendingAsk) stagingGeriVer(room.api, aktor);
+        room.api.setSelf(0);
+      }
       push(room);
       if (!S.over && S.players[S.turn].bot) {
         S.busy = false;
@@ -425,8 +467,12 @@ const server = http.createServer(async (req, res) => {
     room.seats[seat].lastSeen = Date.now();
     const ask = room.pendingAsk;
     room.pendingAsk = null;
-    room.api.setSelf(seat);
+    // Cevabı atıcı verdi ama devam eden hamle taşı ALAN oyuncunun hamlesi.
+    // Motoru cevaplayanın koltuğuyla sürdürürsek açış yanlış oyuncuya yazılıyor.
+    const aktor = ask.actor != null ? ask.actor : seat;
+    room.api.setSelf(aktor);
     try { ask.fns[d.idx].fn(); } catch (e) {}
+    if (!room.pendingAsk) stagingGeriVer(room.api, aktor);
     room.api.setSelf(0);
     push(room);
     return send(res, 200, { ok: true });
