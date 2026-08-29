@@ -163,11 +163,16 @@ body{
   color:#a9761a;font-weight:900;line-height:1;
 }
 .tile.wild:after{display:none}
-/* yere inmiş okey: masadaki gibi ters çevrilir. Yerine geçtiği taşın sayısı
-   yazılmaz; kendi yüzü baş aşağı durur, nokta yukarıda kalır. */
+/* Yere inmiş okey masaya TERS konur: görünen yüz taşın boş arkasıdır.
+   Üzerinde ne kendi sayısı ne de yerine geçtiği taşın sayısı yazar —
+   düpedüz beyaz durur. 10 · [boş] · 12 gördüğünde ortadakinin 11 olduğu
+   zaten dizilişten bellidir. */
+.tile.wild.faced{
+  background:linear-gradient(170deg,#ffffff 0%,#f6f7f5 60%,#dfe2dd 100%);
+  box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 -2px 2px rgba(0,0,0,.10) inset,1px 2px 3px rgba(0,0,0,.45);
+}
 .tile.wild.faced:before{display:none}
-.tile.wild.faced{transform:rotate(180deg)}
-.tile.wild.faced:after{display:block}
+.tile.wild.faced:after{display:none}
 .tile.fake{color:#6d6d6d}
 .tile.sm{--tw:var(--sw);--th:var(--sh);font-size:15px;border-radius:4px}
 
@@ -1835,10 +1840,9 @@ function tileEl(t,o={}){
   if(isWild(t)) d.classList.add('wild');
   if(t.fake){ d.classList.add('fake'); d.textContent='★'; }
   else if(isWild(t)){
-    // elde: sayı yazılmaz, hangi taş olacağı henüz belli değil
-    // yerde: masadaki gibi TERS ÇEVRİLİR — yerine geçtiği taşın sayısı yazılmaz,
-    // okey kendi yüzünü baş aşağı gösterir
-    if(yerde){ d.classList.add('faced'); d.textContent=e.n; }
+    // elde: "OKEY" yazar, hangi taş olacağı henüz belli değil
+    // yerde: ters konur — üzerinde hiçbir sayı yazmaz, bomboş beyaz durur
+    if(yerde){ d.classList.add('faced'); d.textContent=''; }
   }
   else d.textContent=e.n;
   if(o.sel) d.classList.add('sel');
