@@ -52,10 +52,13 @@ body{
 .vseat{width:66px;flex:0 0 auto}
 .hseat{flex-direction:row;justify-content:center;gap:8px;padding:5px 8px}
 .vseat.turn,.hseat.turn{border-color:var(--gold);box-shadow:0 0 0 2px rgba(245,195,59,.35)}
+.sinfo{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.hseat .sinfo{flex-direction:row;align-items:center;gap:8px}
 .nm{font-size:12px;font-weight:700;line-height:1.1;text-align:center}
 .ps{font-size:9px;letter-spacing:.12em;text-transform:uppercase;opacity:.6}
 .cnt{font-size:11px;opacity:.85}
 .thrown{font-size:8px;letter-spacing:.1em;text-transform:uppercase;opacity:.55;margin-top:2px}
+.thrown.see{cursor:pointer;opacity:.95;color:var(--gold)}
 .takeable{cursor:pointer;box-shadow:0 0 0 2px var(--gold),1px 2px 3px rgba(0,0,0,.45)}
 .bubble{
   position:absolute;top:-7px;right:-4px;
@@ -151,17 +154,35 @@ body{
 .tile.c0{color:var(--c0)} .tile.c1{color:var(--c1)} .tile.c2{color:var(--c2)} .tile.c3{color:var(--c3)}
 .tile.sel{transform:translateY(-10px);box-shadow:0 0 0 2px var(--gold),1px 7px 9px rgba(0,0,0,.5)}
 .tile.wild{
-  background:linear-gradient(170deg,#fff3c4 0%,#f5df8e 55%,#d7b954 100%);
-  box-shadow:0 0 0 2px #b8860b,0 1px 0 rgba(255,255,255,.9) inset,1px 2px 4px rgba(0,0,0,.5);
+  background:linear-gradient(170deg,#ffffff 0%,#fbfbf8 60%,#eceee9 100%);
+  box-shadow:0 0 0 2px var(--gold),0 1px 0 rgba(255,255,255,.9) inset,1px 2px 4px rgba(0,0,0,.5);
 }
 .tile.wild:before{
-  content:"OKEY";position:absolute;bottom:2%;left:0;right:0;text-align:center;
-  font-size:calc(var(--tw)*.17);letter-spacing:.05em;color:#8a6508;font-weight:800;line-height:1;
+  content:"OKEY";position:absolute;top:50%;left:0;right:0;transform:translateY(-50%);
+  text-align:center;font-size:calc(var(--tw)*.26);letter-spacing:.04em;
+  color:#a9761a;font-weight:900;line-height:1;
 }
 .tile.wild:after{display:none}
-.tile.wild .rot{display:block;transform:rotate(180deg);text-shadow:0 1px 0 rgba(255,255,255,.6)}
+/* yere inmiş okey: yerine geçtiği taşın sayısını taşır, OKEY yazısı gerekmez */
+.tile.wild.faced:before{display:none}
 .tile.fake{color:#6d6d6d}
 .tile.sm{--tw:var(--sw);--th:var(--sh);font-size:15px;border-radius:4px}
+
+/* yerdeki perlere işleyen taş — atarsan 71 ceza */
+.livemark{
+  position:absolute;top:2px;left:2px;width:7px;height:7px;border-radius:50%;
+  background:#e0574f;box-shadow:0 0 0 1.5px #fff,0 1px 2px rgba(0,0,0,.4);
+  pointer-events:none;
+}
+/* yerden aldığın taşın üzerindeki geri bırakma şeridi */
+.tile.taken{box-shadow:0 0 0 2px #e0574f,1px 2px 4px rgba(0,0,0,.5)}
+.tback{
+  position:absolute;left:-5px;right:-5px;bottom:-1px;
+  font-size:7px;font-weight:800;font-style:normal;letter-spacing:-.01em;
+  line-height:11px;text-align:center;white-space:nowrap;
+  background:linear-gradient(180deg,var(--gold),var(--goldDark));
+  color:#3a2503;border-radius:3px;cursor:pointer;z-index:2;
+}
 
 .rack{
   padding:8px 8px 10px;border-radius:7px;margin-bottom:8px;
@@ -190,12 +211,13 @@ body{
 
 .floorstrip{display:flex;gap:8px;margin-bottom:8px}
 .fslot{
-  flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:4px;
-  padding:7px 6px;border-radius:9px;
+  flex:1 1 0;display:flex;flex-direction:row;align-items:center;justify-content:center;gap:8px;
+  padding:5px 8px;border-radius:9px;min-width:0;
   background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(0,0,0,.2));
   border:1px solid rgba(255,255,255,.14);
 }
-.fcap{font-size:9px;letter-spacing:.12em;text-transform:uppercase;opacity:.7}
+.fcap{font-size:10px;letter-spacing:.04em;opacity:.7;text-align:center;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .fslot.drop{border-color:var(--gold);background:linear-gradient(180deg,rgba(245,195,59,.22),rgba(0,0,0,.2));box-shadow:0 0 12px rgba(245,195,59,.4)}
 .zone.zhot{background:rgba(245,195,59,.18);box-shadow:0 0 0 1px var(--gold) inset}
 .tile.dead{opacity:.45;filter:grayscale(.7)}
@@ -310,6 +332,9 @@ details.rules div{padding-top:7px;line-height:1.7}
   .feltgrid{min-height:0}
   .mzone{max-height:none;overflow:visible}
   .zlabel{width:100%;text-align:center;align-self:auto}
+
+  /* şu an basılamayacak düğmeler yer kaplamasın */
+  .controls button:disabled{display:none}
 }
 
 /* ---- yatay telefon: masa solda, takoz ve düğmeler sağda ---- */
@@ -330,6 +355,7 @@ details.rules div{padding-top:7px;line-height:1.7}
   .mzone{max-height:none;overflow:visible}
   .rack{margin-bottom:6px}
   .controls button{padding:7px 9px;font-size:12px}
+  .controls button:disabled{display:none}
 }
 </style>
 </head>
@@ -364,11 +390,11 @@ details.rules div{padding-top:7px;line-height:1.7}
           </div>
         </div>
         <div class="side">
-          <div class="cap">Kalan</div>
-          <div class="stack" id="deck" role="button" tabindex="0">?</div>
-          <div style="font-size:11px;font-weight:700" id="deckCount">0</div>
           <div class="cap">Gösterge</div>
           <div id="gosterge"></div>
+          <div class="cap" style="margin-top:2px">Kalan</div>
+          <div class="stack" id="deck" role="button" tabindex="0">?</div>
+          <div style="font-size:11px;font-weight:700" id="deckCount">0</div>
           <div class="cap" style="margin-top:2px">Çekilecek</div>
           <div class="cstack" id="cstack"></div>
         </div>
@@ -416,7 +442,7 @@ details.rules div{padding-top:7px;line-height:1.7}
     <button id="btnDiscard" class="gold">At</button>
     <button id="btnLeft">◀</button>
     <button id="btnRight">▶</button>
-    <button id="btnSort">Otomatik grupla</button>
+    <button id="btnSort">Seriye çevir</button>
     <button id="btnSortP">Çift diz</button>
     <button id="btnScore">Puan tablosu</button>
   </div>
@@ -668,6 +694,42 @@ function orderMeld(tiles){
     if(res.length===tiles.length) return res;
   }
   return tiles.slice();
+}
+
+// Yere inmiş bir perde okeyin hangi taşın yerine geçtiği kesinleşir.
+// orderMeld zaten okeyi doğru sıraya koyuyor; buradan yüzünü okuyoruz.
+function meldFaces(ord){
+  const out=ord.map(()=>null);
+  const others=ord.filter(t=>!isWild(t));
+  if(!others.length) return out;
+
+  // çift: okey karşısındaki taşın aynısıdır
+  if(ord.length===2){
+    const o=others[0];
+    ord.forEach((t,k)=>{ if(isWild(t)) out[k]=eff(o); });
+    return out;
+  }
+
+  const c0=eff(others[0]).c, n0=eff(others[0]).n;
+
+  // seri: dizide k. sıradaki taş lo+k sayısıdır
+  if(others.every(t=>eff(t).c===c0)){
+    const i0=ord.findIndex(t=>!isWild(t));
+    const lo=eff(ord[i0]).n-i0;
+    const tutar=ord.every((t,k)=>isWild(t)||eff(t).n===lo+k);
+    if(tutar&&lo>=1&&lo+ord.length-1<=13){
+      ord.forEach((t,k)=>{ if(isWild(t)) out[k]={c:c0,n:lo+k}; });
+      return out;
+    }
+  }
+
+  // aynı sayıdan per: okey eksik renklerin yerine geçer
+  if(others.every(t=>eff(t).n===n0)){
+    const bos=[0,1,2,3].filter(c=>!others.some(t=>eff(t).c===c));
+    let b=0;
+    ord.forEach((t,k)=>{ if(isWild(t)&&b<bos.length) out[k]={c:bos[b++],n:n0}; });
+  }
+  return out;
 }
 
 // elimdeki taşla yerdeki okeyi değiştirebilir miyim
@@ -1743,10 +1805,16 @@ function shift(d){
 const $=id=>document.getElementById(id);
 function tileEl(t,o={}){
   const d=document.createElement('div'); const e=eff(t);
-  d.className='tile c'+e.c+(o.sm?' sm':'');
+  // Yerde ise okey hangi taşın yerine geçtiyse onun rengini ve sayısını taşır.
+  const yuz=(o.face&&isWild(t))?o.face:null;
+  d.className='tile c'+(yuz?yuz.c:e.c)+(o.sm?' sm':'');
   if(isWild(t)) d.classList.add('wild');
   if(t.fake){ d.classList.add('fake'); d.textContent='★'; }
-  else if(isWild(t)){ const sp=document.createElement('span'); sp.className='rot'; sp.textContent=e.n; d.appendChild(sp); }
+  else if(isWild(t)){
+    // elde: sayı yazılmaz, hangi taş olacağı henüz belli değil
+    // yerde: yerine geçtiği taşın sayısı yazılır
+    if(yuz){ d.classList.add('faced'); d.textContent=yuz.n; }
+  }
   else d.textContent=e.n;
   if(o.sel) d.classList.add('sel');
   if(o.onClick){
@@ -1864,26 +1932,24 @@ function drawSeat(box,i,horiz){
   box.innerHTML='';
   const b=document.createElement('div'); b.className='bubble'; b.textContent=S.totals[i]; box.appendChild(b);
   const info=document.createElement('div');
-  info.style.cssText=horiz?'display:flex;align-items:center;gap:8px':'display:flex;flex-direction:column;align-items:center;gap:2px';
+  info.className='sinfo';
   info.innerHTML=`<div class="ps">${posOf(i)}</div><div class="nm">${p.name}</div><div class="cnt">${p.hand.length} taş</div>`
-    + (S.dealer===i?'<span class="tag dl">dağıtan</span>':'') + openTag(p);
+    + openTag(p);
   box.appendChild(info);
   const top=p.discards[p.discards.length-1];
-  const lab=document.createElement('div'); lab.className='thrown';
+  // "attı" yazısı yok — taşı zaten görüyorsun. Yalnız yığını görme hakkın
+  // varsa tıklanacak bir bağ kalıyor.
   if(top&&canSeePiles()){
-    lab.textContent=`attı · gör (${p.discards.length})`;
-    lab.style.cssText='cursor:pointer;opacity:.95;color:var(--gold)';
+    const lab=document.createElement('div'); lab.className='thrown see';
+    lab.textContent=`gör (${p.discards.length})`;
     lab.onclick=()=>showPile(i);
-  }else lab.textContent=top?'attı':'—';
-  box.appendChild(lab);
-  if(top){
-    const takeable=(i===prevOf(SELF))&&myTurn()&&S.phase==='draw'&&!top.dead;
-    const el=tileEl(top,{sm:true,onClick:takeable?doTake:null});
-    if(takeable) el.classList.add('takeable');
-    box.appendChild(el);
-  }else{
-    const g=document.createElement('div'); g.className='ghost'; box.appendChild(g);
+    box.appendChild(lab);
   }
+  // Solumdaki oyuncunun attığı taş aşağıdaki yer şeridinde zaten duruyor,
+  // burada ikinci kez gösterme.
+  if(i===prevOf(SELF)) return;
+  if(top) box.appendChild(tileEl(top,{sm:true}));
+  else { const g=document.createElement('div'); g.className='ghost'; box.appendChild(g); }
 }
 
 function render(){
@@ -1919,7 +1985,7 @@ function render(){
   const canTake=myTurn()&&S.phase==='draw';
   const fT=$('fsTake'); fT.innerHTML='';
   const c1=document.createElement('div'); c1.className='fcap';
-  c1.textContent=tp?(tp.dead?`${prev.name} işlek attı — ölü taş`:(canTake?`${prev.name} attı — dokun ve al`:`${prev.name} attı`)):`${prev.name} henüz atmadı`;
+  c1.textContent=tp?(tp.dead?`${prev.name} · ölü`:prev.name):`${prev.name} —`;
   fT.appendChild(c1);
   if(tp){
     const el=tileEl(tp,{onClick:(canTake&&!tp.dead)?doTake:null});
@@ -1930,7 +1996,7 @@ function render(){
 
   const fM=$('fsMine'); fM.innerHTML='';
   const c2=document.createElement('div'); c2.className='fcap';
-  c2.textContent=(myTurn()&&S.phase==='act'&&!S.staging.length)?'Buraya sürükle = at':`Attıkların (${me().discards.length}) · gör`;
+  c2.textContent=(myTurn()&&S.phase==='act'&&!S.staging.length)?'sürükle = at':`attıkların (${me().discards.length})`;
   c2.style.cursor='pointer';
   c2.onclick=()=>showPile(0);
   fM.appendChild(c2);
@@ -1956,7 +2022,8 @@ function render(){
   S.melds.forEach(m=>{
     const d=document.createElement('div'); d.className='meld'+(m.pair?' pair':'');
     const ord=m.pair?m.tiles:orderMeld(m.tiles);
-    ord.forEach(t=>d.appendChild(tileEl(t,{sm:true})));
+    const yuzler=meldFaces(ord);
+    ord.forEach((t,k)=>d.appendChild(tileEl(t,{sm:true,face:yuzler[k]})));
     zones[m.owner].appendChild(d);
   });
   S.players.forEach((_,i)=>{
@@ -1968,6 +2035,10 @@ function render(){
 
   syncRack();
   const byId={}; me().hand.forEach(t=>byId[t.id]=t);
+  // yerden aldığım, hâlâ geri bırakabileceğim taş
+  const geriId=(myTurn()&&S.phase==='act'&&S.lastDraw&&S.lastDraw.from==='floor'
+                &&!S.staging.length&&!me().openedNow&&S.lastDraw.tile)
+               ? S.lastDraw.tile.id : null;
   [0,1].forEach(r=>{
     const box=$(r?'rack2':'rack1'); box.innerHTML='';
     const slots=[];
@@ -1979,6 +2050,17 @@ function render(){
       if(t){
         const el=tileEl(t,{sel:S.selected.has(t.id)});
         el.classList.add('hand');
+        // yerdeki perlere işleyen taş: atarsan 71 ceza
+        if(!isWild(t)&&!t.fake&&isLive(t)){
+          const m=document.createElement('i'); m.className='livemark'; el.appendChild(m);
+        }
+        // yerden aldığın taşın üzerinde geri bırakma şeridi
+        if(t.id===geriId){
+          el.classList.add('taken');
+          const u=document.createElement('i'); u.className='tback'; u.textContent='geri bırak';
+          u.onclick=ev=>{ ev.stopPropagation(); doUndo(); };
+          el.appendChild(u);
+        }
         attachDrag(el,t.id);
         sl.appendChild(el);
       }
