@@ -52,6 +52,7 @@ function makeRoom(teams) {
   const code = roomCode();
   const room = {
     code, teams: !!teams,
+    hands: 8,                          // kaç el oynanacak (3-8), oda sahibi seçer
     seats: [null, null, null, null],   // {pid, name, lastSeen} ya da null (bot)
     owner: null,                       // oda sahibinin pid'i (koltuk değişse de sabit)
     version: 0,
@@ -144,6 +145,7 @@ function viewFor(room, seat) {
     version: room.version,
     code: room.code,
     teams: room.teams,
+    hands: room.hands,
     started: room.started,
     seat,
     owner: !!(room.seats[seat] && room.seats[seat].pid === room.owner),
@@ -175,6 +177,10 @@ function viewFor(room, seat) {
       ? { title: room.pendingAsk.title, html: room.pendingAsk.html, buttons: room.pendingAsk.buttons }
       : null,
     lastDraw: (S.turn === seat && S.lastDraw) ? { from: S.lastDraw.from } : null,
+    // "Taşı topla" düğmesi S.snap'e bakıyor. Snapshot sunucuda duruyor ve
+    // istemciye hiç gitmiyordu; bu yüzden düğme çok oyuncuda hep sönüktü.
+    // İçeriğini göndermeye gerek yok, hakkın var mı bilgisi yeterli.
+    snap: !!(S.turn === seat && S.snap),
     next: room.pendingNext || null
   };
 }
@@ -198,6 +204,7 @@ function startRoom(room) {
   const S = api.S;
   room.started = true;
   S.teams = room.teams;
+  S.hands = room.hands || 8;
   S.totals = [0, 0, 0, 0];
   S.xm = [0, 0, 0, 0];
   S.history = [];
@@ -408,9 +415,13 @@ const server = http.createServer(async (req, res) => {
     if (!room) return send(res, 404, { err: 'Oda yok.' });
     if (d.pid !== room.owner) return send(res, 403, { err: 'Sadece oda sahibi değiştirir.' });
     if (room.started) return send(res, 400, { err: 'Oyun başladı.' });
-    room.teams = !!d.teams;
+    if (d.teams !== undefined) room.teams = !!d.teams;
+    if (d.hands !== undefined) {
+      const n = Math.round(Number(d.hands));
+      if (n >= 3 && n <= 8) room.hands = n;
+    }
     push(room);
-    return send(res, 200, { ok: true, teams: room.teams });
+    return send(res, 200, { ok: true, teams: room.teams, hands: room.hands });
   }
 
   if (p === '/api/seat' && req.method === 'POST') {

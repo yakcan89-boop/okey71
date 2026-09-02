@@ -184,9 +184,16 @@
         ? '<div style="display:flex;gap:6px;margin-bottom:6px">' +
             '<button id="lbTek2" style="' + BTN2 + ';margin-top:0">Tek kişilik</button>' +
             '<button id="lbEsli2" style="' + BTN2 + ';margin-top:0">Eşli</button>' +
+          '</div>' +
+          '<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;opacity:.55;margin-bottom:4px">kaç el</div>' +
+          '<div style="display:flex;gap:4px;margin-bottom:8px">' +
+            [3,4,5,6,7,8].map(function (n) {
+              return '<button data-el="' + n + '" style="' + BTN2 + ';margin-top:0;padding:6px 0">' + n + '</button>';
+            }).join('') +
           '</div>'
         : '<div style="font-size:12px;opacity:.7;margin-bottom:6px">' +
-          (v.teams ? 'Eşli oyun — karşılıklı oturanlar eş' : 'Tek kişilik — herkes kendi başına') + '</div>') +
+          (v.teams ? 'Eşli oyun — karşılıklı oturanlar eş' : 'Tek kişilik — herkes kendi başına') +
+          ' · ' + (v.hands || 8) + ' el</div>') +
       list +
       '<div style="font-size:11px;opacity:.55;margin-top:8px">Boş bir koltuğa dokunarak yerini değiştirebilirsin.</div>' +
       '<button id="lbCopy" style="' + BTN2 + '">Daveti kopyala</button>' +
@@ -212,6 +219,12 @@
       e.style.background = v.teams ? on : off; e.style.color = v.teams ? '#3a2503' : '#eaf6ff';
       t.onclick = () => post('/api/mode', { code: CODE, pid: PID, teams: false });
       e.onclick = () => post('/api/mode', { code: CODE, pid: PID, teams: true });
+      lob.querySelectorAll('[data-el]').forEach(b => {
+        const secili = +b.dataset.el === (v.hands || 8);
+        b.style.background = secili ? on : off;
+        b.style.color = secili ? '#3a2503' : '#eaf6ff';
+        b.onclick = () => post('/api/mode', { code: CODE, pid: PID, hands: +b.dataset.el });
+      });
     }
 
     const c = document.getElementById('lbCopy');
@@ -238,6 +251,7 @@
     LAST = v;
     const S = api.S;
     S.teams = v.teams; S.handNo = v.handNo; S.dealer = v.dealer;
+    S.hands = v.hands || 8;
     S.turn = v.turn; S.phase = v.phase; S.over = v.over;
     S.doubled = v.doubled; S.topOpen = v.topOpen; S.pairsMax = v.pairsMax;
     S.okey = v.okey; S.gosterge = v.gosterge;
@@ -247,9 +261,17 @@
     S.melds = v.melds;
     S.players = v.players.map(p => Object.assign({ bot: p.i !== v.seat }, p));
     api.setNames(v.players.map((p, i) => (i === v.seat ? 'Sen' : p.name)));
-    S.busy = false; S.staging = []; S.snap = null;
+    // S.snap sunucuda tutuluyor; buraya sadece "geri toplama hakkın var mı"
+    // bilgisi geliyor. Yerel bir yer tutucu koyuyoruz ki düğme açılsın.
+    S.busy = false; S.staging = []; S.snap = v.snap ? { net: true } : null;
     S.lastDraw = v.lastDraw;
     if (!S.selected || !S.selected.has) S.selected = new Set();
+    // elden çıkmış taşların seçimi kalmasın
+    {
+      const el = (v.players[v.seat] && v.players[v.seat].hand) || [];
+      const elde = new Set(el.map(t => t.id));
+      Array.from(S.selected).forEach(id => { if (!elde.has(id)) S.selected.delete(id); });
+    }
     api.setSelf(v.seat);
     api.render();
     paintLog(v.log);
@@ -477,7 +499,13 @@
   }
 
   function selectedIds() {
-    return Array.from(api.S.selected || []);
+    // S.selected istemcide yaşıyor ve sunucudan gelen güncellemede temizlenmiyordu.
+    // Açış/işleme sonrası elden çıkmış taşların id'leri kümede kalıyor, "At"
+    // düğmesi 1'den fazla id görüp sessizce hiçbir şey yapmıyordu.
+    const S = api.S;
+    const el = S.players && S.players[SEAT] ? (S.players[SEAT].hand || []) : [];
+    const elde = new Set(el.map(t => t.id));
+    return Array.from(S.selected || []).filter(id => elde.has(id));
   }
 
   function bind() {
@@ -496,7 +524,8 @@
     on('btnFinish',  () => act('open', { groups: groupsFromRack(true), finish: true }));
     on('btnDiscard', () => {
       const ids = selectedIds();
-      if (ids.length !== 1) return;
+      if (ids.length === 0) { flash('Atmak için bir taş seç.'); return; }
+      if (ids.length > 1) { flash('Atmak için tek taş seç — ' + ids.length + ' taş işaretli.'); return; }
       act('discard', { id: ids[0] });
     });
 
@@ -504,7 +533,7 @@
   }
 
   window.doDiscard = function (auto) {
-    const ids = Array.from(api.S.selected || []);
+    const ids = selectedIds();
     if (ids.length !== 1) return;
     act('discard', { id: ids[0] });
   };
