@@ -340,10 +340,13 @@
     document.querySelectorAll('.veil .opt').forEach(x => x.remove());
     document.getElementById('vTitle').textContent = n.title;
     document.getElementById('vLines').innerHTML = n.html;
+    // Maç sonu perdesinde tam puan tablosu geliyor, kart geniş olsun
+    veil.classList.toggle('wide', !!n.wide);
     const vb = document.getElementById('vBtn');
-    vb.style.display = ''; vb.textContent = 'Devam';
+    vb.style.display = ''; vb.textContent = n.btn || 'Devam';
     vb.onclick = () => {
       veil.classList.add('hidden');
+      veil.classList.remove('wide');
       post('/api/next', { code: CODE, pid: PID });
     };
     veil.classList.remove('hidden');

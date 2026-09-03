@@ -103,7 +103,11 @@ function makeRoom(teams) {
   ctx.render = () => push(room);
   ctx.notice = () => {};
   ctx.syncTimer = () => {};
-  ctx.showVeil = (title, html, btn, fn) => { room.pendingNext = { title, html, fn }; push(room); };
+  ctx.showVeil = (title, html, btn, fn, genis) => {
+    // Maç sonunda tam puan tablosu gönderiliyor; geniş kart isteniyor.
+    room.pendingNext = { title, html, fn, wide: !!genis, btn: btn || 'Devam' };
+    push(room);
+  };
   ctx.askVeil = (title, html, buttons) => {
     const seat = (api.S.askSeat != null) ? api.S.askSeat : api.self;
     // actor: soruyu doğuran hamleyi yapan koltuk (soruyu CEVAPLAYAN değil).

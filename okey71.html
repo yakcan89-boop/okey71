@@ -263,7 +263,12 @@ button.pulse{animation:btnp 1.3s ease-in-out infinite}
 .mbtn.on{background:linear-gradient(180deg,var(--gold),var(--goldDark));border-color:#ffe08a;color:#3a2503}
 .status{font-size:12px;font-weight:700;color:var(--gold);margin-bottom:7px;min-height:16px}
 .status.wait{color:rgba(234,246,255,.6);font-weight:400}
-.controls{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.controls{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-bottom:8px}
+/* Düğmeler SABİT ızgarada durur. Eskiden flex-wrap vardı ve basılamayan
+   düğmeler gizleniyordu; her hamlede sıra kayıyor, yanlışlıkla istemediğin
+   emri veriyordun. Artık her düğmenin yeri hep aynı, basılamayan sadece
+   soluklaşır. */
+.controls button{min-height:38px;padding:8px 6px;white-space:normal;line-height:1.15;overflow-wrap:anywhere}
 button{
   font:inherit;font-size:13px;font-weight:700;color:#eaf6ff;
   background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05));
@@ -344,8 +349,9 @@ details.rules div{padding-top:7px;line-height:1.7}
   .mzone{max-height:none;overflow:visible}
   .zlabel{width:100%;text-align:center;align-self:auto}
 
-  /* şu an basılamayacak düğmeler yer kaplamasın */
-  .controls button:disabled{display:none}
+  /* Basılamayan düğme GİZLENMEZ, yeri korunur — yoksa sıra kayıyor. */
+  .controls{grid-template-columns:repeat(5,1fr);gap:4px}
+  .controls button{font-size:11px;padding:7px 3px;min-height:36px}
 }
 
 /* ---- yatay telefon: masa solda, takoz ve düğmeler sağda ---- */
@@ -365,8 +371,8 @@ details.rules div{padding-top:7px;line-height:1.7}
   .feltgrid{min-height:0}
   .mzone{max-height:none;overflow:visible}
   .rack{margin-bottom:6px}
-  .controls button{padding:7px 9px;font-size:12px}
-  .controls button:disabled{display:none}
+  .controls{grid-template-columns:repeat(4,1fr);gap:4px}
+  .controls button{padding:6px 3px;font-size:11px;min-height:32px}
 }
 </style>
 </head>
@@ -440,22 +446,28 @@ details.rules div{padding-top:7px;line-height:1.7}
     <button class="mbtn" data-m="serbest">Serbest</button>
   </div>
 
+  <!-- Sıra SABİTTİR, değiştirme. Mobilde 5 sütunlu ızgara:
+       1. satır: taş alma      2. satır: takozu düzenleme
+       3. satır: yere indirme ve atış — "At" en sağ altta, tek başına köşede,
+       İşle ile arasında Puan tablosu var ki yanlışlıkla basılmasın. -->
   <div class="controls">
     <button id="btnDeck">Desteden çek</button>
     <button id="btnTake" class="red">Yerden al</button>
     <button id="btnUndo">Geri bırak</button>
+    <button id="btnLeft">◀</button>
+    <button id="btnRight">▶</button>
+
     <button id="btnJoin">Yan yana getir</button>
+    <button id="btnSort">Seriye çevir</button>
+    <button id="btnSortP">Çift diz</button>
     <button id="btnOpen" class="gold">Yere indir</button>
     <button id="btnFinish" class="gold">Elden bit</button>
+
     <button id="btnPut">Yere koy</button>
     <button id="btnCollect">Taşı topla</button>
     <button id="btnProcess">İşle</button>
-    <button id="btnDiscard" class="gold">At</button>
-    <button id="btnLeft">◀</button>
-    <button id="btnRight">▶</button>
-    <button id="btnSort">Seriye çevir</button>
-    <button id="btnSortP">Çift diz</button>
     <button id="btnScore">Puan tablosu</button>
+    <button id="btnDiscard" class="gold">At</button>
   </div>
   </div><!-- /handzone -->
 
@@ -468,6 +480,7 @@ details.rules div{padding-top:7px;line-height:1.7}
       <b>Başlangıç:</b> Oyunun başında dört zar atılır; <b>en küçük zarı atan dağıtır</b>, onun altındaki oyuncu 15 taşla oyunu açar. Her el dağıtma sırası bir kişi ilerler. Berabere zarda yeniden atılır.<br>
       <b>Puan:</b> Taşlar sayı değeri kadar. 10-11-12-13 = 46, dört tane 5 = 20. 13'ten sonra 1 gelmez.<br>
       <b>Baraj katlamalı:</b> İlk açış en az <b>71</b>. Biri 85 açtıysa sonraki en az 86 açmalı. <b>Açtıktan sonra yere koyduğun ya da işlediğin taşlar barajı yükseltmez</b> — sadece ilk açış sayılır.<br>
+      <b>Çift hakkı ne zaman sorulur:</b> Attığın taşı alan oyuncu, o taşı <b>gerçekten yere indirdiği anda</b> sana sorulur — “senin taşınla düz açacağım, çift diyor musun?”. Taşı alıp kendi taşlarıyla açarsa sana sorulmaz, sorulacak bir şey yoktur. “Al” dersen o taş <b>o tur yere inmek zorundadır</b>; inmezse alan oyuncu 71 ceza yazar.<br>
       <b>Çift demenin üç yolu:</b> ① Sağdan taş alıp o tur açmamak — attığın anda çift sayılırsın. ② Attığın taşı biri düz açmak için isterse “çift diyorum” demek. ③ Doğrudan 5 çift açmak. Bunun dışında keyfî olarak çift denmez.<br>
       <b>Açanın taşı serbest:</b> Açmış bir oyuncunun attığı taş sorulmadan alınır. Açmamış oyuncudan alırken çift hakkı sorulur. Sen de açtıysan hem işlemek hem <b>yeni per kurmak</b> için taş alabilirsin — ama aldığın taşı o tur yere indirmelisin, indirmezsen 71 ceza. Henüz açmamışsan alıp devam etmek serbest; sadece o tur açıyorsan taşı açışına katmalısın.<br>
       <b>Çift hakkı:</b> Sağdan aldığın taşla düz açacaksan perleri hazırlayıp <b>Yere aç</b> dersin; o anda taşı atan oyuncuya sorulur. Çift derse taşı kullanamazsın — ya geri bırakıp ortadan çekersin, ya da sen de çifte dönersin.<br>
@@ -477,9 +490,9 @@ details.rules div{padding-top:7px;line-height:1.7}
       <b>Ceza:</b> Açamayan 101, düz açan elinde kalanı, <b>çift açan elinde kalanın iki katını</b> yazar. Çift deyip hiç açamayan 101'in iki katı (202).<br>
       <b>Masa:</b> Deste biter ve <b>kimse açamamışsa</b> el masaya gider — puan yazılmaz, aynı el yeniden dağıtılır. Biri açmışsa cezalar normal işler.<br>
       <b>Katlama:</b> Cezalar üç durumda ikiye katlanır: hiç kimse açmamışken elden bitiş, çiftle bitiş, ve bitiren son taşı <b>okey</b> atması. Birleşirler — <b>çiftle bitip son taşı okey atan dört katına</b> çıkarır.<br>
-      <b>Okey alma:</b> Ayrı bir düğme yok — <b>İşle</b> dediğinde okey kendiliğinden eline gelir. Şart: açmış olacaksın ve okeyin yeri kesinleşmiş olacak. Yerde S12-K12-OKEY varken okey hem maviyi hem sarıyı temsil edebilir; sadece maviyi işlersen okeyi alamazsın, sarı kimdeyse o işleyip alır. İkisi de sendeyse birini işler, öbürüyle okeyi alırsın. <b>Aldığın okeyi o el içinde yere indirmelisin</b> — işlersin, seri ya da çift yaparsın, son taş olarak atarsın. El biterken elindeyse <b>71 ceza</b> yazarsın, üstüne okeyin sayısı elde kalanlara eklenir (gösterge 6 ise okey 7 sayılır). Sen ya da eşin bitirirse ceza yok.<br>
+      <b>Okey alma:</b> Okey <b>kendiliğinden gelmez</b> — belki o taşı vermek istemiyorsundur. Yerdeki okeyin yerine uyan taşını <b>seçip “İşle”ye bas</b>, ya da o taşı <b>okeyin üstüne sürükle</b>; taşın okeyin yerine girer, okey senin olur. Alabileceğin bir okey varsa oyun sana alt yazıda hatırlatır, zorlamaz. Şart: açmış olacaksın ve okeyin yeri kesinleşmiş olacak. Yerde S12-K12-OKEY varken okey hem maviyi hem sarıyı temsil edebilir; sadece maviyi işlersen okeyi alamazsın, sarı kimdeyse o işleyip alır. İkisi de sendeyse birini işler, öbürüyle okeyi alırsın. <b>Aldığın okeyi o el içinde yere indirmelisin</b> — işlersin, seri ya da çift yaparsın, son taş olarak atarsın. El biterken elindeyse <b>71 ceza</b> yazarsın, üstüne okeyin sayısı elde kalanlara eklenir (gösterge 6 ise okey 7 sayılır). Sen ya da eşin bitirirse ceza yok.<br>
       <b>Elden bitiş barajsız:</b> Yerden taş almadan, işleme yapmadan tüm elini dizip bitirebilirsin — toplamın 71'in altında olsa bile.<br>
-      <b>Taşı topla / geri al:</b> Bu turda taş işlediysen düğme “Son işlemeyi geri al” olur; geri aldığın taşı <b>o tur yeniden yere indirmelisin</b>, elinde kalırsa 71 ceza. Hiç işleme yapmadıysan düğme tüm turu geri alır, taş atınca 71 yazılır.<br>
+      <b>Taşı topla / geri al:</b> Bu turda taş işlediysen düğme “İşlemeyi geri al” olur; geri aldığın taşı <b>o tur yeniden yere indirmelisin</b>, elinde kalırsa 71 ceza. Hiç işleme yapmadıysan düğme tüm turu geri alır, taş atınca 71 yazılır.<br>
       <b>İşleme:</b> Açtıktan sonra yerdeki perlere taş eklersin. <b>Aynı uca bir turda en fazla 2 taş</b> işlenir, ama perin öbür ucuna ve başka perlere ayrıca işleyebilirsin — yerde 4-5-6 varken elindeki 2 ile 3'ü alt uca, 7'yi üst uca aynı turda koyabilirsin. <b>Çift açan turda yalnız 1 taş</b> işler. Seri açan oyuncu, yerde çift açan varsa elindeki bir çifti turda bir kez oraya işleyebilir.<br>
       <b>Elle işleme:</b> “İşle” düğmesi taşı kendi bulduğu ilk pere koyar. Hangi pere gideceğine kendin karar vermek istersen <b>taşı takozdan alıp doğrudan o perin üstüne sürükle</b>. Uyuyorsa per yeşil, uymuyorsa kırmızı yanar. Sürüklediğin taş <b>perdeki okeyin tam yerine</b> denk geliyorsa bırakınca okey senin olur, taşın onun yerine girer. Bu, elinde tek taş kalsa bile yapılabilir: elde taş sayısı değişmez — okeyi alıp onu atarak bitirebilirsin, o zaman <b>okey attın</b> sayılır ve herkes iki katı yazar.<br>
       <b>Geri bırakma:</b> Sadece yerden aldığın taş geri bırakılabilir; ortadan çektiğin taş geri gitmez.<br>
@@ -490,7 +503,7 @@ details.rules div{padding-top:7px;line-height:1.7}
       <b>Eşli oyun:</b> Sen ve karşındaki Murat bir takımsınız. Puanlar takım olarak toplanır. <b>Sen ya da eşin bitirirse ikiniz de sıfır yazarsınız</b>; kimse bitirmezse herkes kendi elindekini yazar. Eşine yön verebilirsin: <b>Topla</b> (desteden çekmesin, yerden alsın), <b>Çek</b> (desteden çeksin), <b>Taşla</b>, <b>Çifte git</b>. Zorlama değil, eşin de sana durumunu yazar. Maç sonunda net puanı düşük takım kazanır.<br>
       <b>“Taşla” ne demek:</b> “Benim elim iyi, sen kendi oyununu kovalama — <b>elinin altındaki rakibi aç bırak</b>.” Eşinin elinin altındaki oyuncu, senin elinin üstündeki rakiptir; o beslenmezse açamaz, sen rahat edersin. Eş bunu yaparken en çok <b>o rakibin kendi attığı taşların eşini</b> geri atar (istemediğini göstermiştir), sonra küçük taşları verir, işine yarayacak taşları elinde tutar. Eşin eli iyiyse bu emri dinlemez, kendi oyununu oynar — zorunlu değildir.<br>
       <b>Karşı taraf da eş oynar:</b> Zeynep ile Elif de bir takımdır. Onlardan birinin eli tutmuyorsa ve eşi iyi durumdaysa, emir beklemeden aynı şeyi yapar: kendi elini zorlamayı bırakıp elinin altındaki rakibi taşlar. Eş bitirdiğinde ikisi de sıfır yazdığı için zayıf olanın kendi oyununu kovalaması bir işe yaramaz.<br>
-      <b>Taşı topla / geri al:</b> Bu turda bir taş işlediysen düğme “Son işlemeyi geri al” olur — yanlış uca gitmişse geri alıp doğru yere koyarsın. Geri aldığın taşı <b>o tur mutlaka yeniden yere indirmelisin</b>; elinde kalırsa 71 ceza. Hiç işleme yapmadıysan düğme tüm turu geri alır ve taş atınca 71 yazılır.<br>
+      <b>Taşı topla / geri al:</b> Bu turda bir taş işlediysen düğme “İşlemeyi geri al” olur — yanlış uca gitmişse geri alıp doğru yere koyarsın. Geri aldığın taşı <b>o tur mutlaka yeniden yere indirmelisin</b>; elinde kalırsa 71 ceza. Hiç işleme yapmadıysan düğme tüm turu geri alır ve taş atınca 71 yazılır.<br>
       <br>
       <b>Okey taşı</b> sarı zeminde, altında OKEY yazısıyla ve sayısı ters basılmış olarak görünür — elinde varsa hemen fark edersin.
     </div>
@@ -589,6 +602,10 @@ function newHand(){
   }
   refillCenter();          // dağıtımdan sonra ortada 5 taş hazır dursun
   S.turn=st; S.phase='act';
+  // 15 taşla başlayan oyuncu taş çekmeden hamleye başlıyor; snapshot doDeck ve
+  // doTake içinde alınıyordu, bu yüzden onun "Taşı topla" düğmesi sönük
+  // kalıyordu — el başında da alıyoruz.
+  { const keep=SELF; SELF=st; snapTurn(); SELF=keep; }
   log(`— ${S.handNo}. el — Gösterge ${tileName(S.gosterge)}, okey ${CN[S.okey.c]} ${S.okey.n}.`,true);
   log(`Dağıtan ${NAMES[S.dealer]} — ${NAMES[st]} 15 taşla başlıyor.`);
   render();
@@ -1021,7 +1038,9 @@ function autoSort(p){
 /* ================= AKIŞ ================= */
 const handValue=p=>p.hand.reduce((a,t)=>a+((isWild(t)||t.fake)?val(S.okey.n):val(t.n)),0);
 
-const isLive=t=>S.melds.some(m=>canAddTable(m,t));
+// İşlek taş: yerdeki bir perin ucuna girebilen, YA DA yerdeki bir okeyin tam
+// yerine denk gelen taş. İkincisi de masanın işine yarar — o taşla okey alınır.
+const isLive=t=>S.melds.some(m=>!m.pair&&(canAddTable(m,t)||!!meldOkeySlot(m,t)));
 
 function endHand(winner,note){
   if(S.over) return;
@@ -1087,7 +1106,14 @@ function endHand(winner,note){
       const a=nets[0]+nets[2], b2=nets[1]+nets[3];
       champ = a===b2 ? 'Berabere' : (a<b2 ? `Sen + Murat (${a})` : `Zeynep + Elif (${b2})`);
     }else champ=`${NAMES[best]} (${nets[best]})`;
-    showVeil('Oyun bitti',body+`<div style="margin-top:10px;font-weight:700;color:#f5c33b">Kazanan: ${champ}</div>`,'Yeni oyun',()=>startGame());
+    // Maç bitti: son elin dökümünün altına TAM PUAN TABLOSUNU koyuyoruz.
+    // Bu perde sunucu üzerinden herkese gittiği için puan durumunu
+    // dört oyuncu da aynı anda görür.
+    showVeil('Oyun bitti',
+      body +
+      `<div style="margin:12px 0 4px;font-weight:700;color:#f5c33b;font-size:16px">Kazanan: ${champ}</div>` +
+      scoreTableHTML(),
+      'Yeni oyun',()=>startGame(), true);
   }else{
     showVeil(title,body,`${S.handNo+1}. el`,()=>{ S.handNo++; S.dealer=nextOf(S.dealer); newHand(); });
   }
@@ -1202,12 +1228,23 @@ function botDraw(p,next){
     // İnsan oyuncuda olduğu gibi: önce taşı eline alır, sonra açmaya kalkışırken
     // atıcıya sorulur. Soru, taş hâlâ yerdeyken gelmesin.
     grabOnly();
+    // Soru "senin taşını düz açışta kullanacağım" demektir. Kuracağı perlerde
+    // o taş yoksa sormaz — kendi taşlarıyla açıyordur. Eskiden her açışta
+    // soruyordu: atıcı "al" diyordu ama taş yere inmiyordu.
+    const plan=pack(p.hand,'points');
+    const kullaniyor=plan.melds.some(m=>m.tiles.some(t=>t.id===top.id));
+    if(!kullaniyor){ p.tookToOpen=true; return next(); }
     return askPairRight(prev,p,top,ok=>{
-      if(ok){ p.tookToOpen=true; return next(); }
+      if(ok){
+        p.tookToOpen=true;
+        // izin alındı: bu taş bu tur yere inecek, inmezse 71 ceza
+        p.pendingLay=top.id; p.layNow=true;
+        return next();
+      }
       // atıcı çift dedi — aldığı taşı geri bırakır, desteden çeker
       p.hand=p.hand.filter(t=>t.id!==top.id);
       prev.discards.push(top);
-      p.pendingLay=null;
+      p.pendingLay=null; p.layNow=false;
       log(`${p.name} çift dendiği için taşı geri bıraktı, desteden çekti.`);
       fromDeck();
     });
@@ -1338,8 +1375,14 @@ function botPlay(p){
       p.fine+=71;
       log(`${p.name} aldığı taşla açamadı — 71 ceza.`,true);
     }
+    // İzin isteyip aldığı taşı yere indirmediyse: atıcının çift hakkını
+    // boşuna kullandırdı, 71 yazar.
+    if(p.layNow&&p.pendingLay&&!bitiyor&&p.hand.some(x=>x.id===p.pendingLay)){
+      p.fine+=71;
+      log(`${p.name} izin aldığı taşı yere indirmedi — 71 ceza.`,true);
+    }
     p.tookToOpen=false;
-    p.pendingLay=null;
+    p.pendingLay=null; p.layNow=false;
     p.hand=p.hand.filter(x=>x.id!==t.id);
     p.discards.push(t);
     S.okeyFinish=isWild(t);
@@ -1664,6 +1707,7 @@ function applyOpen(finish){
     const n=S.staging.length;
     S.staging.forEach(g=>{ S.melds.push({tiles:g.tiles,owner:SELF,pair:true}); clearLay(me(),g.tiles); });
     me().opened=true; me().openedNow=true; me().pairCount=n; me().openPairs=n; me().mustOpen=false;
+    me().retracted=false;              // geri toplayıp yeniden açtın, borç kapandı
     S.pairsMax=Math.max(S.pairsMax,n);
     S.staging=[]; layCheck(me());
     log(`${n} çiftle açtın.`,true); render();
@@ -1677,10 +1721,15 @@ function applyOpen(finish){
   if(!finish&&me().hand.length<1){ log('· Atacak taş bırakmalısın.'); return false; }
   S.staging.forEach(g=>{ S.melds.push({tiles:g.tiles,owner:SELF}); clearLay(me(),g.tiles); clearRelay(me(),g.tiles); });
   S.staging=[]; me().opened=true; me().openedNow=true; me().openPoints=tot; me().mustOpen=false;
+  // Geri toplayıp bu tur yeniden açtıysan borcun kapandı — ceza yazılmaz.
+  // Ceza yalnız hiç açmayana; barajın altında zaten açtıramıyoruz.
+  me().retracted=false;
   S.topOpen=Math.max(S.topOpen,tot);
   layCheck(me());
   log(finish?'Elden bitiriyorsun — son taşı at.':`${tot} puanla açtın — baraj ${tot+1}.`,true);
-  if(!finish) autoOkey(me());
+  // Okey burada KENDİLİĞİNDEN GELMEZ. Belki oyuncu o taşı işlemek istemiyordur.
+  // Okey ancak "İşle" ile ya da taşı okeyin üstüne sürükleyerek alınır.
+  okeyHatirlat();
   render();
   return true;
 }
@@ -1701,7 +1750,7 @@ function blockedByPairs(prev){
       {t:'Çiftle devam et', cls:'red', fn:()=>{ declarePairs(me()); me().mustOpen=false; sortPairs(me()); render(); }} ]);
 }
 
-function withPairRight(fn){
+function withPairRight(fn,inecek){
   // Soru atıcıya gider, cevabı atıcı verir. Cevap döndüğünde ağ katmanı SELF'i
   // cevabı verenin koltuğuna ayarlamış olabilir; oysa hamleyi yapan (açan) kişi
   // taşı ALAN oyuncudur. Aktör koltuğu burada saklanıp devamda geri konuyor,
@@ -1710,11 +1759,22 @@ function withPairRight(fn){
   const run=g=>{ const keep=SELF; SELF=actor; try{ g(); } finally { SELF=keep; } };
   const d=S.lastDraw;
   if(d&&d.from==='floor'&&d.needAsk&&!d.asked){
+    // Soru "senin attığın taşı düz açışta kullanacağım" demektir. Aldığı taş
+    // yere inen taşların arasında değilse ortada sorulacak bir şey yok; kendi
+    // taşlarıyla açıyor demektir. Eskiden her açışta soruluyordu: atıcı "al"
+    // diyordu ama taş yere inmiyordu.
+    const iner = inecek ? inecek.some(t=>t.id===d.tile.id) : true;
+    if(!iner){ fn(); return; }
     const prev=S.players[d.owner];
     const taker=S.players[actor];
     return askPairRight(prev,taker,d.tile,ok=>{
       if(!ok){ run(()=>blockedByPairs(prev)); return; }
-      run(()=>{ d.asked=true; fn(); });
+      run(()=>{
+        d.asked=true;
+        // İzin alındı: o taş bu tur mutlaka yere inecek. İnmezse 71 ceza.
+        taker.pendingLay=d.tile.id; taker.layNow=true;
+        fn();
+      });
     });
   }
   fn();
@@ -1728,13 +1788,18 @@ function doOpen(finish){
   }
   if(finish&&me().hand.length!==1){ log('· Elden bitmek için elinde tek taş kalmalı.'); return; }
   if(stagedAllPairs()){ if(applyOpen(finish)&&finish) finishNow(); return; }
-  withPairRight(()=>{ if(applyOpen(finish)&&finish) finishNow(); });
+  const inecek=[].concat(...S.staging.map(g=>g.tiles));
+  withPairRight(()=>{ if(applyOpen(finish)&&finish) finishNow(); }, inecek);
 }
 
-function doPut(){ withPairRight(doPut_); }
-function doPut_(){
+function doPut(){
   if(!myTurn()||S.phase!=='act'||!me().opened) return;
   if(!S.staging.length&&!stageFromRack(false)){ log('· Takozda geçerli bir grup yok.'); return; }
+  withPairRight(doPut_, [].concat(...S.staging.map(g=>g.tiles)));
+}
+function doPut_(){
+  if(!myTurn()||S.phase!=='act'||!me().opened) return;
+  if(!S.staging.length){ log('· Takozda geçerli bir grup yok.'); return; }
   if(me().pairs&&!S.staging.every(g=>g.pair)){ log('· Sadece çift koyabilirsin.'); return; }
   if(me().hand.length<1){ log('· Atacak taş bırakmalısın.'); return; }
   S.staging.forEach(g=>{
@@ -1742,7 +1807,7 @@ function doPut_(){
     clearLay(me(),g.tiles); clearRelay(me(),g.tiles);
     if(g.pair){ me().pairCount++; S.pairsMax=Math.max(S.pairsMax,me().pairCount); }
   });
-  S.staging=[]; log('Yere koydun.'); autoOkey(me()); render();
+  S.staging=[]; log('Yere koydun.'); okeyHatirlat(); render();
   if(me().pairs&&me().pairCount>=7) endHand(SELF,'7 çift yaptın.');
 }
 function autoOkey(p){
@@ -1755,6 +1820,14 @@ function autoOkey(p){
                    : `${p.name} işleyerek okeyi aldı.`, true);
   }
   return n;
+}
+
+/* Okey artık kendiliğinden gelmiyor: belki oyuncu o taşı vermek istemiyordur
+   (elinde tutup başka bir seriye saklayabilir). Sadece hatırlatıyoruz. */
+function okeyHatirlat(){
+  const c=okeyCandidates(me())[0];
+  if(!c) return;
+  log(`Yerdeki okeyi ${tileName(c.mine)} taşınla alabilirsin — o taşı seçip “İşle”ye bas ya da okeyin üstüne sürükle.`);
 }
 
 /* ---- elle işleme: taşı yerdeki belirli bir pere sürükleyerek ---- */
@@ -1784,7 +1857,10 @@ function canDropOn(t,mi){
   return (me().procMap[mi+':'+addSide(m,t)]||0)<2;
 }
 
-function processInto(id,mi){ withPairRight(()=>processInto_(id,mi)); }
+function processInto(id,mi){
+  const t=me().hand.find(x=>x.id===id);
+  withPairRight(()=>processInto_(id,mi), t?[t]:[]);
+}
 function processInto_(id,mi){
   if(!myTurn()||S.phase!=='act') return;
   if(!me().opened){ log('· Önce elini yere açman gerekiyor.'); return; }
@@ -1818,11 +1894,11 @@ function processInto_(id,mi){
   me().procLog.push({mi,tileId:t.id,key});
   S.selected.clear();
   log(`${tileName(t)} taşını ${m.owner===SELF?'kendi perine':(S.players[m.owner].name+' perine')} işledin.`);
-  autoOkey(me());
+  okeyHatirlat();
   render();
 }
 
-function doProcess(){ withPairRight(doProcess_); }
+function doProcess(){ withPairRight(doProcess_, selTiles()); }
 function doProcess_(){
   if(!myTurn()||S.phase!=='act'||!me().opened) return;
   const ts=selTiles();
@@ -1884,7 +1960,7 @@ function doProcess_(){
   S.selected.clear();
   if(!n) log(blocked?'· O uca bu tur 2 taş işledin, sıra sana gelince devam.':'· Uyan per yok.');
   else log(`${n} taş işledin.`);
-  autoOkey(me());
+  okeyHatirlat();
   render();
 }
 
@@ -2316,7 +2392,7 @@ function render(){
   $('btnPut').disabled=!(act&&me().opened);
   $('btnProcess').disabled=!(act&&me().opened&&!me().pairs);
   $('btnCollect').disabled=!(act&&((me().procLog||[]).length>0||!!S.snap));
-  $('btnCollect').textContent=(act&&(me().procLog||[]).length)?'Son işlemeyi geri al':'Taşı topla';
+  $('btnCollect').textContent=(act&&(me().procLog||[]).length)?'İşlemeyi geri al':'Taşı topla';
   $('btnDiscard').disabled=!act;
   $('btnLeft').disabled=$('btnRight').disabled=S.selected.size!==1;
   $('btnJoin').disabled=S.selected.size<2;
@@ -2458,9 +2534,7 @@ function notice(title,html){
   $('veil').classList.remove('hidden');
 }
 
-function showScores(){
-  document.querySelectorAll('.veil .opt').forEach(x=>x.remove());
-  $('vTitle').textContent='Puan tablosu';
+function scoreTableHTML(){
   const cols=[0,1,2,3];
   let h='<table class="sctab">';
   // 1) X satırı en üstte
@@ -2487,7 +2561,13 @@ function showScores(){
   h+='</table>';
   if(S.teams) h+=`<div class="tmrow">Biz <b>${netOf(0)+netOf(2)}</b> · Onlar <b>${netOf(1)+netOf(3)}</b></div>`;
   h+='<div class="scnote">Her X oyun sonunda toplamdan <b>101</b> puan düşer. Maç sonunda net puanı en düşük olan kazanır.</div>';
-  $('vLines').innerHTML=h;
+  return h;
+}
+
+function showScores(){
+  document.querySelectorAll('.veil .opt').forEach(x=>x.remove());
+  $('vTitle').textContent='Puan tablosu';
+  $('vLines').innerHTML=scoreTableHTML();
   $('vBtn').style.display=''; $('vBtn').textContent='Kapat';
   $('vBtn').onclick=()=>{ $('veil').classList.add('hidden'); $('veil').classList.remove('wide'); syncTimer(); };
   $('veil').classList.add('wide');
@@ -2516,8 +2596,8 @@ function showPile(i){
   $('veil').classList.remove('hidden');
 }
 
-function showVeil(title,html,btn,fn){
-  $('veil').classList.remove('wide');
+function showVeil(title,html,btn,fn,genis){
+  $('veil').classList.toggle('wide',!!genis);   // puan tablosu için geniş kart
   document.querySelectorAll('.veil .opt').forEach(x=>x.remove());
   $('vBtn').style.display='';
   $('vTitle').textContent=title;
