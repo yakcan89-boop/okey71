@@ -526,6 +526,11 @@
     on('btnOpen',    () => act('open', { groups: groupsFromRack(false), finish: false }));
     on('btnFinish',  () => act('open', { groups: groupsFromRack(true), finish: true }));
     on('btnDiscard', () => {
+      // son iki taş okeyse "At" düğmesi çift okey atışına döner
+      const el = (api.S.players[SEAT] || {}).hand || [];
+      if (el.length === 2 && el.every(t => api.isWild(t)) && api.S.players[SEAT].opened) {
+        act('ciftokey'); return;
+      }
       const ids = selectedIds();
       if (ids.length === 0) { flash('Atmak için bir taş seç.'); return; }
       if (ids.length > 1) { flash('Atmak için tek taş seç — ' + ids.length + ' taş işaretli.'); return; }
@@ -536,6 +541,10 @@
   }
 
   window.doDiscard = function (auto) {
+    const el = (api.S.players[SEAT] || {}).hand || [];
+    if (el.length === 2 && el.every(t => api.isWild(t)) && api.S.players[SEAT].opened) {
+      act('ciftokey'); return;
+    }
     const ids = selectedIds();
     if (ids.length !== 1) return;
     act('discard', { id: ids[0] });
@@ -544,6 +553,7 @@
   window.doDeck = function () { act('deck'); };
   // taşı yerdeki bir perin üstüne sürükleyince
   window.processInto = function (id, mi) { act('meldput', { id, mi }); };
+  window.doDoubleOkey = function () { act('ciftokey'); };
 
   window.addEventListener('error', e => {
     try { note('Hata: ' + (e.message || 'bilinmeyen')); } catch (_) {}

@@ -489,6 +489,7 @@ details.rules div{padding-top:7px;line-height:1.7}
       <b>Ödül (X):</b> En yüksek çifti açan — 7 çift <b>XX</b>, 6 çift <b>X</b>, 5 çift ödülsüz. Normal açışta 101 ve üzeri açanlardan en yükseği <b>X</b> alır. Her X oyun sonunda toplamdan <b>101 puan</b> düşer; tabloda sayı olarak değil X olarak görünür.<br>
       <b>Ceza:</b> Açamayan 101, düz açan elinde kalanı, <b>çift açan elinde kalanın iki katını</b> yazar. Çift deyip hiç açamayan 101'in iki katı (202).<br>
       <b>Masa:</b> Deste biter ve <b>kimse açamamışsa</b> el masaya gider — puan yazılmaz, aynı el yeniden dağıtılır. Biri açmışsa cezalar normal işler.<br>
+      <b>Çift okey atmak:</b> Elinde <b>son iki taş olarak iki okey</b> kalırsa ikisini birden atıp bitirirsin. Öbür taşların yere inmiş olması yeter — ister elden bitiyor ol (hepsini bir seferde indirip iki okeyi atarsın, baraj aranmaz), ister daha önce açmış ol ve kalan taşlarını işleyip iki okeyle kal. İkinci okeyi yerden işleyerek de almış olabilirsin. “At” düğmesi o anda <b>“Çift okey at”</b> olur. Tek okey atmak eli ikiye katlıyordu; <b>çift okey dörde katlar</b> ve öbür katlamalarla ayrıca çarpışır — çift diyen varsa onun cezası da dört katına çıkar.<br>
       <b>Katlama:</b> Cezalar üç durumda ikiye katlanır: hiç kimse açmamışken elden bitiş, çiftle bitiş, ve bitiren son taşı <b>okey</b> atması. Birleşirler — <b>çiftle bitip son taşı okey atan dört katına</b> çıkarır.<br>
       <b>Okey alma:</b> Okey <b>kendiliğinden gelmez</b> — belki o taşı vermek istemiyorsundur. Yerdeki okeyin yerine uyan taşını <b>seçip “İşle”ye bas</b>, ya da o taşı <b>okeyin üstüne sürükle</b>; taşın okeyin yerine girer, okey senin olur. Alabileceğin bir okey varsa oyun sana alt yazıda hatırlatır, zorlamaz. Şart: açmış olacaksın ve okeyin yeri kesinleşmiş olacak. Yerde S12-K12-OKEY varken okey hem maviyi hem sarıyı temsil edebilir; sadece maviyi işlersen okeyi alamazsın, sarı kimdeyse o işleyip alır. İkisi de sendeyse birini işler, öbürüyle okeyi alırsın. <b>Aldığın okeyi o el içinde yere indirmelisin</b> — işlersin, seri ya da çift yaparsın, son taş olarak atarsın. El biterken elindeyse <b>71 ceza</b> yazarsın, üstüne okeyin sayısı elde kalanlara eklenir (gösterge 6 ise okey 7 sayılır). Sen ya da eşin bitirirse ceza yok.<br>
       <b>Elden bitiş barajsız:</b> Yerden taş almadan, işleme yapmadan tüm elini dizip bitirebilirsin — toplamın 71'in altında olsa bile.<br>
@@ -532,7 +533,7 @@ const S={
   players:[],turn:0,phase:'draw',
   melds:[],staging:[],selected:new Set(),
   totals:[0,0,0,0],xm:[0,0,0,0],history:[],handNo:1,hands:TOTAL_HANDS,
-  doubled:false,pairsMax:0,topOpen:0,okeyFinish:false,lastDraw:null,teams:false,timerSec:0,rack:null,dealer:0,snap:null,mateMsg:null,over:false,busy:false
+  doubled:false,pairsMax:0,topOpen:0,okeyFinish:false,ciftOkeyFinish:false,lastDraw:null,teams:false,timerSec:0,rack:null,dealer:0,snap:null,mateMsg:null,over:false,busy:false
 };
 
 const val=n=>n;
@@ -587,7 +588,7 @@ function buildDeck(){
 function newHand(){
   S.deck=buildDeck(); S.center=[];
   S.melds=[];S.staging=[];S.selected.clear();S.rack=null;
-  S.over=false;S.busy=false;S.doubled=false;S.pairsMax=0;S.topOpen=0;S.okeyFinish=false;S.lastDraw=null;S.mateMsg=null;S.snap=null;
+  S.over=false;S.busy=false;S.doubled=false;S.pairsMax=0;S.topOpen=0;S.okeyFinish=false;S.ciftOkeyFinish=false;S.lastDraw=null;S.mateMsg=null;S.snap=null;
   S.players=[0,1,2,3].map(newPlayer);
   let g=S.deck.pop();
   while(g.fake){ S.deck.unshift(g); g=S.deck.pop(); }
@@ -1056,7 +1057,9 @@ function endHand(winner,note){
     const othersOpened=S.players.some(x=>x.i!==winner&&x.opened);
     if(w.pairs){ mult*=2; why.push('çiftle bitti ×2'); }
     else if(w.openedNow&&!othersOpened){ mult*=2; why.push('kimse açmadan elden bitti ×2'); }
-    if(S.okeyFinish){ mult*=2; why.push('okey attı ×2'); }
+    // Çift okey dörde katlar, tek okey ikiye. Öbür katlamalarla çarpışır.
+    if(S.ciftOkeyFinish){ mult*=4; why.push('ÇİFT OKEY attı ×4'); }
+    else if(S.okeyFinish){ mult*=2; why.push('okey attı ×2'); }
   }
   const topNormal = Math.max(0, ...S.players.filter(p=>p.opened&&!p.pairs).map(p=>p.openPoints));
   const topPairs  = Math.max(0, ...S.players.filter(p=>p.opened&&p.pairs).map(p=>p.openPairs));
@@ -1735,6 +1738,7 @@ function applyOpen(finish){
 }
 
 function finishNow(){
+  if(ciftOkeyVar(me())) return doDoubleOkey();     // son iki taş okeyse ikisi birden
   if(me().hand.length!==1) return;
   S.selected.clear(); S.selected.add(me().hand[0].id);
   doDiscard(true);
@@ -1786,7 +1790,17 @@ function doOpen(finish){
     log('· Takozda geçerli bir grup yok — taşları yan yana diz ya da “Per hazırla” ile seç.');
     return;
   }
-  if(finish&&me().hand.length!==1){ log('· Elden bitmek için elinde tek taş kalmalı.'); return; }
+  // Elden bitişte normalde tek taş kalır. İki okey kalıyorsa da olur:
+  // ikisi birden atılıp el çift okeyle bitirilir (×4).
+  if(finish){
+    // hazırlığa alınan taşlar elden zaten çıkmış durumda
+    const kalan=me().hand.length;
+    const hepsiOkey=me().hand.every(isWild);
+    if(!(kalan===1||(kalan===2&&hepsiOkey))){
+      log('· Elden bitmek için elinde tek taş kalmalı — ya da son iki taşın okey olmalı.');
+      return;
+    }
+  }
   if(stagedAllPairs()){ if(applyOpen(finish)&&finish) finishNow(); return; }
   const inecek=[].concat(...S.staging.map(g=>g.tiles));
   withPairRight(()=>{ if(applyOpen(finish)&&finish) finishNow(); }, inecek);
@@ -1964,6 +1978,29 @@ function doProcess_(){
   render();
 }
 
+/* ---- ÇİFT OKEY İLE BİTİŞ ----
+   Elinde son iki taş olarak iki okey kaldıysa ikisini birden atıp bitirirsin.
+   Tek okey atmak eli ×2 katlıyordu; çift okey ×4 katlar. Öbür katlamalarla
+   (kimse açmamışken elden bitiş, çiftle bitiş) ayrıca çarpışır. */
+const ciftOkeyVar=p=>p.hand.length===2&&p.hand.every(isWild);
+
+function doDoubleOkey(){
+  if(!myTurn()||S.phase!=='act') return;
+  if(S.staging.length){ log('· Önce grupları yere koy ya da geri al.'); return; }
+  if(!me().opened){ log('· Önce elini yere açmalısın.'); return; }
+  if(!ciftOkeyVar(me())){ log('· Bunun için elinde son iki taş olarak iki okey kalmalı.'); return; }
+  const ikisi=me().hand.slice();
+  me().hand=[];
+  ikisi.forEach(t=>me().discards.push(t));
+  S.okeyFinish=true; S.ciftOkeyFinish=true;
+  me().pendingLay=null; me().layNow=false; me().retracted=false;
+  me().mustRelay=null; me().mustOpen=false; S.lastDraw=null;
+  S.selected.clear();
+  log('ÇİFT OKEY attın — el bitti, herkes dört katı yazar.',true);
+  render();
+  endHand(SELF,'Çift okey atarak bitirdin.');
+}
+
 function doDiscard(auto){
   if(!myTurn()||S.phase!=='act') return;
   const ts=selTiles();
@@ -1995,7 +2032,7 @@ function doDiscard(auto){
   me().mustOpen=false; S.lastDraw=null;
   me().hand=me().hand.filter(x=>x.id!==t.id);
   me().discards.push(t);
-  S.okeyFinish=isWild(t);
+  S.okeyFinish=isWild(t); S.ciftOkeyFinish=false;
   if(isLive(t)&&!bitiyor){ t.dead=true; if(auto!==true){ me().fine+=71; log('İşlek taş attın — 71 ceza. Bu taşı kimse alamaz.',true); } }
   S.selected.clear(); log(`${tileName(t)} attın.`); render();
   if(me().hand.length===0){ endHand(SELF,'Son taşını attın.'); return; }
@@ -2172,7 +2209,10 @@ function attachDrag(el,id){
     el.style.transform=''; el.style.zIndex=''; el.classList.remove('drag');
     clearMarks();
     if(d.moved){
-      if(d.discard){ S.selected.clear(); S.selected.add(id); render(); doDiscard(false); return; }
+      if(d.discard){
+        if(me().opened&&!S.staging.length&&ciftOkeyVar(me())){ doDoubleOkey(); return; }
+        S.selected.clear(); S.selected.add(id); render(); doDiscard(false); return;
+      }
       if(d.meld!=null){ processInto(id,d.meld); return; }
       if(d.slot) dropAt(id,d.slot[0],d.slot[1]);
       render();
@@ -2393,7 +2433,10 @@ function render(){
   $('btnProcess').disabled=!(act&&me().opened&&!me().pairs);
   $('btnCollect').disabled=!(act&&((me().procLog||[]).length>0||!!S.snap));
   $('btnCollect').textContent=(act&&(me().procLog||[]).length)?'İşlemeyi geri al':'Taşı topla';
+  const ciftOkey = act&&me().opened&&!S.staging.length&&ciftOkeyVar(me());
   $('btnDiscard').disabled=!act;
+  $('btnDiscard').textContent = ciftOkey ? 'Çift okey at' : 'At';
+  $('btnDiscard').classList.toggle('red', ciftOkey);
   $('btnLeft').disabled=$('btnRight').disabled=S.selected.size!==1;
   $('btnJoin').disabled=S.selected.size<2;
   $('btnSort').disabled=false;
@@ -2403,11 +2446,17 @@ function render(){
   const rackPairs=S.staging.length?S.staging.filter(g=>g.pair).length:rb.pairs.length;
   const rackTiles=rb.melds.concat(rb.pairs).reduce((a,g)=>a+g.tiles.length,0);
   const pairMode=me().pairs||(S.staging.length&&S.staging.every(g=>g.pair));
+  // Elden bitiş: normalde elde tek taş kalır. İki okey kalıyorsa da olur —
+  // ikisi birden atılır, el çift okeyle biter (×4).
+  const bosOkey=me().hand.filter(isWild).length;
+  const ciftOkeyBitis=act&&!me().opened&&bosOkey===2&&rackTiles>=me().hand.length-2;
   const canOut=act&&!me().opened&&(
       (S.staging.length>0&&me().hand.length===1) ||
-      (!S.staging.length&&rackTiles>=me().hand.length-1&&me().hand.length>=2));
+      (S.staging.length>0&&me().hand.length===2&&me().hand.every(isWild)) ||
+      (!S.staging.length&&rackTiles>=me().hand.length-1&&me().hand.length>=2) ||
+      ciftOkeyBitis);
   $('btnFinish').disabled=!canOut;
-  $('btnFinish').textContent=canOut?'★ Elden bit':'Elden bit';
+  $('btnFinish').textContent=!canOut?'Elden bit':(ciftOkeyBitis?'★ Çift okeyle bit':'★ Elden bit');
   $('btnFinish').className=canOut?'gold pulse':'gold';
   $('btnOpen').textContent=me().opened?'Açıldı':(pairMode?`Yere indir (${rackPairs}/${needPairs()} çift)`:`Yere indir (${rackPts}/${threshold()})`);
   $('btnOpen').className=canOut?'':'gold';
@@ -2629,7 +2678,10 @@ document.querySelectorAll('.mbtn').forEach(b=>{
   };
 });
 $('btnProcess').onclick=doProcess;
-$('btnDiscard').onclick=()=>doDiscard(false);
+$('btnDiscard').onclick=()=>{
+  if(myTurn()&&S.phase==='act'&&me().opened&&!S.staging.length&&ciftOkeyVar(me())) doDoubleOkey();
+  else doDiscard(false);
+};
 $('btnLeft').onclick=()=>shift(-1);
 $('btnRight').onclick=()=>shift(1);
 $('btnSort').onclick=()=>{ autoSort(me()); render(); };
@@ -2717,7 +2769,7 @@ globalThis.__api={
   get S(){return S;}, setSelf(i){SELF=i;}, get self(){return SELF;},
   setNames(a){ a.forEach((n,i)=>{ if(n) NAMES[i]=n; }); },
   startGame, newHand, botTurn, advance, endHand, render,
-  doDeck, doTake, doUndo, doDiscard, doOpen, doPut, doProcess, doOkey, doCollect, processInto,
+  doDeck, doTake, doUndo, doDiscard, doOpen, doPut, doProcess, doOkey, doCollect, processInto, doDoubleOkey,
   applyOpen, stageFromRack, rackBlocks, okeyCheck, okeyCandidates, swapOkey,
   pack, buildPairs, pairCount, validateMeld, validatePair, isWild, eff, tileName,
   threshold, needPairs, pileLeft, isLive, declarePairs, orderMeld,

@@ -236,6 +236,8 @@ const ACTIONS = {
   process: (api, d) => { api.S.selected = new Set(d.ids || []); api.doProcess(); },
   // taşı elle belirli bir pere sürükleyerek işleme / o perdeki okeyi alma
   meldput: (api, d) => api.processInto(d.id, d.mi),
+  // son iki taş okeyse ikisini birden atıp bitirmek
+  ciftokey: (api) => api.doDoubleOkey(),
   put:     (api, d) => { stage(api, d.groups); api.doPut(); },
   open:    (api, d) => { stage(api, d.groups); api.doOpen(!!d.finish); },
   discard: (api, d) => { api.S.selected = new Set([d.id]); api.doDiscard(false); }
