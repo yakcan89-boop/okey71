@@ -354,6 +354,7 @@
 
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   let VER = -1, RUNNING = false, STOP = false;
+  let READONLY = false;      // yancı modunda hiçbir hamle gönderilmez
 
   /* ---------- bağlantı rozeti ---------- */
   function badge(msg) {
@@ -400,12 +401,219 @@
 
   function handle_(v) {
     SEAT = v.seat;
+    // Koltuğu olmayan seyirci: masayı bekleme panelinden izler, boş koltuk
+    // açılınca oturur. Oyun ekranı çizilmez, eli olmayan biri için anlamsız.
+    READONLY = !!v.readOnly;
+    const kt = document.querySelector('.controls');
+    if (kt) { kt.style.pointerEvents = READONLY ? 'none' : ''; kt.style.opacity = READONLY ? '.4' : ''; }
+    if (!READONLY && v.yanci == null) { /* normal oyuncu */ }
+    if (v.watcher) { lob.style.display = ''; showWatcher(v); return; }
     if (!v.started) { lob.style.display = ''; showWaiting(v); return; }
     if (!STARTED) { STARTED = true; bind(); }
     lob.style.display = 'none';
     apply(v);
+    checkLeaveButton(true);
+    yanciCubugu(v);        // yancı çubuğu ya da oyuncunun yancı ayarları
+    if (v.oneri) oneriGoster(v.oneri);
     if (v.ask) showAsk(v.ask);
     else if (v.next) showNext(v.next);
+  }
+
+  // ---- seyirci paneli ----
+  function showWatcher(v) {
+    const sira = v.started ? (v.seats[v.turn] ? v.seats[v.turn].name : 'Bot ' + (v.turn + 1)) : '—';
+    const satir = i => {
+      const s = v.seats[i];
+      const bos = !s;
+      const yanci = (v.yancilar || [])[i];
+      const kapali = (v.yanciKapali || [])[i];
+      const kucuk = 'font-size:11px;font-weight:700;padding:5px 9px;border-radius:6px;cursor:pointer;';
+      let sag = '';
+      if (bos) {
+        sag = '<button data-otur="' + i + '" style="' + kucuk + 'border:1px solid #f5c33b;' +
+              'background:linear-gradient(180deg,#f5c33b,#a9761a);color:#3a2503">Otur</button>';
+      } else if (yanci) {
+        sag = '<span style="font-size:11px;opacity:.7">yancı: ' + yanci + '</span>';
+      } else if (kapali) {
+        sag = '<span style="font-size:11px;opacity:.45">yancı kapalı</span>';
+      } else {
+        sag = '<button data-yanci="' + i + '" style="' + kucuk + 'border:1px solid rgba(255,255,255,.3);' +
+              'background:rgba(255,255,255,.14);color:#eaf6ff">Yancısı ol</button>';
+      }
+      return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:5px;' +
+        'border-radius:8px;background:rgba(255,255,255,' + (bos ? '.06' : '.12') + ')">' +
+        '<b style="flex:1;text-align:left">' + (bos ? 'Boş koltuk' : s.name) + '</b>' +
+        (v.started && v.turn === i ? '<span style="font-size:11px;color:#f5c33b">sırada</span>' : '') +
+        sag + '</div>';
+    };
+    lobbyHTML(
+      '<div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;opacity:.6">oda kodu</div>' +
+      '<div style="font-size:38px;font-weight:900;letter-spacing:.12em;margin:2px 0 8px">' + CODE + '</div>' +
+      '<div style="font-size:13px;opacity:.85;margin-bottom:10px">' +
+        'Masa dolu — <b>izliyorsun</b>. Masayı ve atılan taşları görürsün, elleri görmezsin.' +
+        '<br><b>Yancısı ol</b> dersen o oyuncunun elini de görürsün ve ona akıl verebilirsin.' +
+        (v.started ? ' El ' + v.handNo + '/' + v.hands + ' oynanıyor, sıra <b>' + sira + '</b>.' : '') +
+        '<br>Biri masadan ayrılınca <b>Otur</b> düğmesi açılır.' +
+      '</div>' +
+      [0, 1, 2, 3].map(satir).join('') +
+      '<button id="lbAyril" style="width:100%;margin-top:10px;font-size:13px;font-weight:700;padding:9px;' +
+      'border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.10);' +
+      'color:#eaf6ff;cursor:pointer">Masadan ayrıl</button>'
+    );
+    lob.querySelectorAll('[data-otur]').forEach(b => {
+      b.onclick = async () => {
+        const r = await post('/api/seat', { code: CODE, pid: PID, seat: +b.dataset.otur });
+        if (r && r.err) alert(r.err);
+      };
+    });
+    lob.querySelectorAll('[data-yanci]').forEach(b => {
+      b.onclick = async () => {
+        const r = await post('/api/yanci', { code: CODE, pid: PID, seat: +b.dataset.yanci });
+        if (r && r.err) alert(r.err);
+      };
+    });
+    const a = document.getElementById('lbAyril');
+    if (a) a.onclick = () => ayril(false);
+  }
+
+  /* ---------- yancı çubuğu ----------
+     Yancıysan: oyuncunun elini görürsün, hamle yapamazsın, hazır tavsiyeleri
+     yollarsın. Oyuncuysan: yancının adını görür, kovabilir ya da yancı yerini
+     büsbütün kapatabilirsin. */
+  function cubuk() {
+    let c = document.getElementById('yanciBar');
+    if (!c) {
+      c = document.createElement('div');
+      c.id = 'yanciBar';
+      c.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:160;padding:7px 8px;' +
+        'background:rgba(10,32,52,.96);border-top:1px solid rgba(255,255,255,.18);' +
+        'display:flex;flex-wrap:wrap;gap:5px;align-items:center;justify-content:center;' +
+        'font:700 12px/1.2 "Trebuchet MS",Arial,sans-serif;color:#eaf6ff';
+      document.body.appendChild(c);
+      document.body.style.paddingBottom = '64px';
+    }
+    return c;
+  }
+  function cubukSil() {
+    const c = document.getElementById('yanciBar');
+    if (c) c.remove();
+    document.body.style.paddingBottom = '';
+  }
+
+  const ONERILER = [
+    ['Desteden çek', 'desteden çek'],
+    ['Yerden al',    'yerden al'],
+    ['Bu taşı at',   null],
+    ['Yere indir',   'yere indir, aç'],
+    ['Bekle',        'bekle, tutma'],
+    ['Çifte git',    'çifte git']
+  ];
+
+  function yanciCubugu(v) {
+    // --- yancı görünümü ---
+    if (v.yanci != null) {
+      const c = cubuk();
+      const dgm = (metin, fn, renk) => {
+        const b = document.createElement('button');
+        b.textContent = metin;
+        b.style.cssText = 'font:700 12px/1.1 inherit;padding:7px 9px;border-radius:6px;cursor:pointer;' +
+          'border:1px solid rgba(255,255,255,.28);background:' + (renk || 'rgba(255,255,255,.14)') +
+          ';color:#eaf6ff';
+        b.onclick = fn;
+        return b;
+      };
+      c.innerHTML = '';
+      const et = document.createElement('span');
+      et.style.cssText = 'width:100%;text-align:center;opacity:.8;font-weight:400;margin-bottom:2px';
+      et.innerHTML = '<b>' + v.yanciAdi + '</b> adlı oyuncunun yancısısın — elini görüyorsun, hamleyi o yapar.';
+      c.appendChild(et);
+      ONERILER.forEach(o => {
+        c.appendChild(dgm(o[0], async () => {
+          let metin = o[1];
+          if (!metin) {                       // "Bu taşı at": takozdan seçilen taş
+            const ids = Array.from(api.S.selected || []);
+            const el = (api.S.players[v.yanci] || {}).hand || [];
+            const t = el.find(x => x.id === ids[0]);
+            if (!t) { flash('Önce takozdan bir taş seç.'); return; }
+            metin = api.tileName(t) + ' at';
+          }
+          const r = await post('/api/oneri', { code: CODE, pid: PID, metin });
+          if (r && r.err) flash(r.err); else flash('Tavsiye yollandı: ' + metin);
+        }));
+      });
+      c.appendChild(dgm('Yancılıktan çık', async () => {
+        await post('/api/yanci', { code: CODE, pid: PID, seat: -1 });
+      }, 'rgba(224,87,79,.55)'));
+      return;
+    }
+
+    // --- oturan oyuncunun yancı ayarları ---
+    const benimYanci = (v.yancilar || [])[v.seat];
+    const kapali = (v.yanciKapali || [])[v.seat];
+    if (!benimYanci && !kapali) { cubukSil(); return; }
+    const c = cubuk();
+    c.innerHTML = '';
+    const et = document.createElement('span');
+    et.style.cssText = 'opacity:.85;font-weight:400';
+    et.innerHTML = benimYanci
+      ? 'Yancın: <b>' + benimYanci + '</b>'
+      : 'Yancı yerin <b>kapalı</b>';
+    c.appendChild(et);
+    const dgm = (metin, fn, renk) => {
+      const b = document.createElement('button');
+      b.textContent = metin;
+      b.style.cssText = 'font:700 12px/1.1 inherit;padding:6px 10px;border-radius:6px;cursor:pointer;' +
+        'border:1px solid rgba(255,255,255,.28);background:' + (renk || 'rgba(255,255,255,.14)') + ';color:#eaf6ff';
+      b.onclick = fn;
+      c.appendChild(b);
+    };
+    if (benimYanci) {
+      dgm('Kov', async () => {
+        if (confirm(benimYanci + ' yancılıktan çıkarılsın mı?')) await post('/api/yancikov', { code: CODE, pid: PID });
+      }, 'rgba(224,87,79,.55)');
+    }
+    dgm(kapali ? 'Yancı yerini aç' : 'Yancı yerini kapat', async () => {
+      await post('/api/yancikapat', { code: CODE, pid: PID, kapali: !kapali });
+    });
+  }
+
+  let sonOneri = 0;
+  function oneriGoster(o) {
+    if (!o || o.t === sonOneri) return;
+    sonOneri = o.t;
+    flash('Yancın ' + o.kim + ': “' + o.metin + '”');
+  }
+
+  // ---- masadan ayrılma ----
+  async function ayril(oyunIcinde) {
+    const uyari = oyunIcinde
+      ? 'Masadan ayrılmak istediğine emin misin?\n\nKoltuğun boşalır ve elini bot devralır. ' +
+        'Yerine başkası oturabilir — o zaman GERİ DÖNEMEZSİN.\n\n' +
+        'Bağlantın kopmuşsa ayrılma: koltuğun sana ayrılı kalır, geri girebilirsin.'
+      : 'Masayı izlemeyi bırakacaksın. Emin misin?';
+    if (!confirm(uyari)) return;
+    STOP = true;
+    try { await post('/api/leave', { code: CODE, pid: PID }); } catch (e) {}
+    localStorage.removeItem('okey_code');
+    localStorage.removeItem('okey_pid');
+    location.reload();
+  }
+
+  // Oyun ekranında sol üstte "Masadan ayrıl" düğmesi
+  function checkLeaveButton(goster) {
+    let btn = document.getElementById('btnLeaveRoom');
+    if (goster) {
+      if (!btn) {
+        btn = document.createElement('button');
+        btn.id = 'btnLeaveRoom';
+        btn.textContent = 'Masadan ayrıl';
+        btn.style.cssText = 'position:fixed;top:8px;left:8px;z-index:150;font-size:11px;font-weight:700;' +
+          'padding:5px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.3);' +
+          'background:rgba(0,0,0,.35);color:#eaf6ff;cursor:pointer;';
+        btn.onclick = () => ayril(true);
+        document.body.appendChild(btn);
+      }
+    } else if (btn) btn.remove();
   }
 
   async function connect() {
@@ -442,9 +650,12 @@
       badge(null);
 
       if (d.gone) {
-        showLost(d.reason === 'kapatildi'
-          ? 'Oda sahibi masayı kapattı.'
-          : 'Masadaki yerin düştü. Yeniden bağlanmayı deneyebilirsin.', d.reason !== 'kapatildi');
+        const kendi = d.reason === 'ayrildi';
+        showLost(
+          d.reason === 'kapatildi' ? 'Oda sahibi masayı kapattı.'
+          : kendi ? 'Masadan ayrıldın. Koltuğun boşaldı — geri dönmek için oda koduyla yeniden katılman gerekir; boş koltuk yoksa seyirci olarak beklersin.'
+          : 'Masadaki yerin düştü. Yeniden bağlanmayı deneyebilirsin.',
+          !kendi && d.reason !== 'kapatildi');
         break;
       }
       if (d.version != null) VER = d.version;
@@ -477,6 +688,7 @@
   }
 
   async function act(type, data) {
+    if (kilitli()) return;
     try {
       const d = await post('/api/action', { code: CODE, pid: PID, type, data });
       if (d && d.err) flash(d.err);
@@ -499,6 +711,12 @@
     if (pts >= api.threshold()) return melds;
     if (pairs.length >= api.needPairs()) return pairs;
     return melds;
+  }
+
+  // Yancı hamle yapamaz — kazara basılan her şey burada durur.
+  function kilitli() {
+    if (READONLY) { flash('Yancısın — hamleyi oyuncu yapar, sen sadece akıl verirsin.'); return true; }
+    return false;
   }
 
   function selectedIds() {

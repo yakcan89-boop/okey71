@@ -480,6 +480,8 @@ details.rules div{padding-top:7px;line-height:1.7}
       <b>Başlangıç:</b> Oyunun başında dört zar atılır; <b>en küçük zarı atan dağıtır</b>, onun altındaki oyuncu 15 taşla oyunu açar. Her el dağıtma sırası bir kişi ilerler. Berabere zarda yeniden atılır.<br>
       <b>Puan:</b> Taşlar sayı değeri kadar. 10-11-12-13 = 46, dört tane 5 = 20. 13'ten sonra 1 gelmez.<br>
       <b>Baraj katlamalı:</b> İlk açış en az <b>71</b>. Biri 85 açtıysa sonraki en az 86 açmalı. <b>Açtıktan sonra yere koyduğun ya da işlediğin taşlar barajı yükseltmez</b> — sadece ilk açış sayılır.<br>
+      <b>Masadan ayrılmak (çok oyunculu):</b> Oyun ekranının sol üstünde <b>Masadan ayrıl</b> düğmesi var. Kendi isteğinle ayrılırsan <b>koltuğun boşalır</b>, elini bot devralır ve yerine başkası oturabilir — o zaman geri dönemezsin, oda koduyla yeniden katılman gerekir. <b>Bağlantın koptuysa ayrılma:</b> koltuk sana ayrılı kalır, 70 saniye sonra bota devredilir ama sen dönünce koltuğunu ve taşlarını geri alırsın. Masa doluyken katılan biri <b>seyirci</b> olur; bir koltuk boşalınca “Otur” diyerek oyuna girer ve o koltuğa bakan botun elini devralır.<br>
+      <b>Seyirci ve yancı:</b> <b>Seyirci</b> sadece masayı görür — yerdeki perleri, atılan taşları, puan tablosunu. Kimsenin elini göremez. <b>Yancı</b> ise bir oyuncunun yanına oturur: <b>o oyuncunun elini de görür</b> ve ona akıl verebilir — “desteden çek”, “yerden al”, “bu taşı at”, “yere indir”, “bekle”, “çifte git”. Bunlar sadece tavsiyedir, hamleyi oyuncu yapar; yancı hiçbir düğmeye basamaz. Tavsiye yalnız o oyuncuya gider, masaya yayılmaz. Bir oyuncunun tek yancısı olur. Oyuncu yancısını <b>kovabilir</b> ya da <b>yancı yerini büsbütün kapatabilir</b> — kapalıyken kimse yanına oturamaz.<br>
       <b>Çift hakkı ne zaman sorulur:</b> Attığın taşı alan oyuncu, o taşı <b>gerçekten yere indirdiği anda</b> sana sorulur — “senin taşınla düz açacağım, çift diyor musun?”. Taşı alıp kendi taşlarıyla açarsa sana sorulmaz, sorulacak bir şey yoktur. “Al” dersen o taş <b>o tur yere inmek zorundadır</b>; inmezse alan oyuncu 71 ceza yazar.<br>
       <b>Çift demenin üç yolu:</b> ① Sağdan taş alıp o tur açmamak — attığın anda çift sayılırsın. ② Attığın taşı biri düz açmak için isterse “çift diyorum” demek. ③ Doğrudan 5 çift açmak. Bunun dışında keyfî olarak çift denmez.<br>
       <b>Açanın taşı serbest:</b> Açmış bir oyuncunun attığı taş sorulmadan alınır. Açmamış oyuncudan alırken çift hakkı sorulur. Sen de açtıysan hem işlemek hem <b>yeni per kurmak</b> için taş alabilirsin — ama aldığın taşı o tur yere indirmelisin, indirmezsen 71 ceza. Henüz açmamışsan alıp devam etmek serbest; sadece o tur açıyorsan taşı açışına katmalısın.<br>
@@ -1228,15 +1230,13 @@ function botDraw(p,next){
   const withT=p.hand.concat([top]);
   const rp=pack(withT,'points'), rc=pack(withT,'cover');
   if((rp.points>=threshold()&&rp.leftover.length>=1)||rc.leftover.length===0){
+    // Açışta o taşı gerçekten kullanacak mı? Kullanmayacaksa taşı HİÇ ALMAZ —
+    // alıp elinde tutarak kendi taşlarıyla düz açmak yok. Desteden çeker.
+    const kullaniyor=rp.melds.some(m=>m.tiles.some(t=>t.id===top.id));
+    if(!kullaniyor) return fromDeck();
     // İnsan oyuncuda olduğu gibi: önce taşı eline alır, sonra açmaya kalkışırken
     // atıcıya sorulur. Soru, taş hâlâ yerdeyken gelmesin.
     grabOnly();
-    // Soru "senin taşını düz açışta kullanacağım" demektir. Kuracağı perlerde
-    // o taş yoksa sormaz — kendi taşlarıyla açıyordur. Eskiden her açışta
-    // soruyordu: atıcı "al" diyordu ama taş yere inmiyordu.
-    const plan=pack(p.hand,'points');
-    const kullaniyor=plan.melds.some(m=>m.tiles.some(t=>t.id===top.id));
-    if(!kullaniyor){ p.tookToOpen=true; return next(); }
     return askPairRight(prev,p,top,ok=>{
       if(ok){
         p.tookToOpen=true;
@@ -1803,6 +1803,18 @@ function doOpen(finish){
   }
   if(stagedAllPairs()){ if(applyOpen(finish)&&finish) finishNow(); return; }
   const inecek=[].concat(...S.staging.map(g=>g.tiles));
+  // Yerden aldığın taşla üç şey yapabilirsin, dördüncüsü yok:
+  //   1) açışında kullanırsın → atıcıya çift hakkı sorulur
+  //   2) "Geri bırak" dersin → taş yerine döner, desteden çekersin
+  //   3) elinde tutup açmadan atarsın → çift demiş olursun
+  // Taşı alıp elinde tutarak KENDİ taşlarınla düz açmak yok.
+  {
+    const d=S.lastDraw;
+    if(d&&d.from==='floor'&&me().mustOpen&&!inecek.some(t=>t.id===d.tile.id)){
+      log(`· Yerden aldığın ${tileName(d.tile)} taşını da yere indirmelisin. İndirmeyeceksen “Geri bırak” de; elinde tutup atarsan çift demiş olursun.`,true);
+      return;
+    }
+  }
   withPairRight(()=>{ if(applyOpen(finish)&&finish) finishNow(); }, inecek);
 }
 
