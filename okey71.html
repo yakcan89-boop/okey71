@@ -50,10 +50,10 @@ body{
   display:flex;flex-direction:column;align-items:center;gap:4px;
 }
 .vseat{width:66px;flex:0 0 auto}
-.hseat{flex-direction:row;justify-content:center;gap:8px;padding:5px 8px}
+.hseat{flex-direction:row;justify-content:center;align-items:center;gap:10px;padding:5px 8px}
 .vseat.turn,.hseat.turn{border-color:var(--gold);box-shadow:0 0 0 2px rgba(245,195,59,.35)}
 .sinfo{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
-.hseat .sinfo{flex-direction:row;align-items:center;gap:8px}
+.hseat .sinfo{flex-direction:column;align-items:flex-start;gap:1px}
 .nm{font-size:12px;font-weight:700;line-height:1.1;text-align:center}
 .ps{font-size:9px;letter-spacing:.12em;text-transform:uppercase;opacity:.6}
 .cnt{font-size:11px;opacity:.85}
@@ -482,20 +482,24 @@ details.rules div{padding-top:7px;line-height:1.7}
       <b>Baraj katlamalı:</b> İlk açış en az <b>71</b>. Biri 85 açtıysa sonraki en az 86 açmalı. <b>Açtıktan sonra yere koyduğun ya da işlediğin taşlar barajı yükseltmez</b> — sadece ilk açış sayılır.<br>
       <b>Masadan ayrılmak (çok oyunculu):</b> Oyun ekranının sol üstünde <b>Masadan ayrıl</b> düğmesi var. Kendi isteğinle ayrılırsan <b>koltuğun boşalır</b>, elini bot devralır ve yerine başkası oturabilir — o zaman geri dönemezsin, oda koduyla yeniden katılman gerekir. <b>Bağlantın koptuysa ayrılma:</b> koltuk sana ayrılı kalır, 70 saniye sonra bota devredilir ama sen dönünce koltuğunu ve taşlarını geri alırsın. Masa doluyken katılan biri <b>seyirci</b> olur; bir koltuk boşalınca “Otur” diyerek oyuna girer ve o koltuğa bakan botun elini devralır.<br>
       <b>Seyirci ve yancı:</b> <b>Seyirci</b> sadece masayı görür — yerdeki perleri, atılan taşları, puan tablosunu. Kimsenin elini göremez. <b>Yancı</b> ise bir oyuncunun yanına oturur: <b>o oyuncunun elini de görür</b> ve ona akıl verebilir — “desteden çek”, “yerden al”, “bu taşı at”, “yere indir”, “bekle”, “çifte git”. Bunlar sadece tavsiyedir, hamleyi oyuncu yapar; yancı hiçbir düğmeye basamaz. Tavsiye yalnız o oyuncuya gider, masaya yayılmaz. Bir oyuncunun tek yancısı olur. Oyuncu yancısını <b>kovabilir</b> ya da <b>yancı yerini büsbütün kapatabilir</b> — kapalıyken kimse yanına oturamaz.<br>
-      <b>Çift hakkı ne zaman sorulur:</b> Attığın taşı alan oyuncu, o taşı <b>gerçekten yere indirdiği anda</b> sana sorulur — “senin taşınla düz açacağım, çift diyor musun?”. Taşı alıp kendi taşlarıyla açarsa sana sorulmaz, sorulacak bir şey yoktur. “Al” dersen o taş <b>o tur yere inmek zorundadır</b>; inmezse alan oyuncu 71 ceza yazar.<br>
+      <b>Çift hakkı ne zaman sorulur:</b> Attığın taşı alan oyuncu, o taşı <b>gerçekten yere indirdiği anda</b> sana sorulur — “senin taşınla düz açacağım, çift diyor musun?”. Taşı alıp kendi taşlarıyla açarsa sana sorulmaz, sorulacak bir şey yoktur. “Al” dersen o taş <b>o tur yere inmek zorundadır</b>. İzin verildiği an açış zorunlu olur. Alan oyuncu <b>açamazsa</b> (puanı barajı tutmazsa), <b>vazgeçerse</b>, <b>açıp sonra geri toplarsa</b> ya da <b>taşı geri bırakırsa</b> — elinde baraj olsa bile — <b>71 ceza</b> yazar — senin çift hakkını boşuna kullandırmış olur. Bu ceza taşı geri bırakmakla ya da yeniden taş çekmekle silinmez. <b>“Çift diyorum” dersen ceza yoktur</b> — açılışı sen engellemiş olursun, alan oyuncunun eli barajı tutmasa bile ceza yazmaz. Taşı geri bırakır ya da kendisi de çifte döner. Karşı taraf sana çift dedirtmek için taşı almış olsa bile durum değişmez: ceza <b>ancak izin verildiği hâlde açılamazsa</b> yazılır.<br>
+      <b>Baraj hesabı:</b> Soru sorulduğunda yerdeki durum hesaba katılır. Yerde 101'lik bir açış varsa yeni açışın <b>102 ve üstü</b> olması gerekir; yerden alınan taş bu toplama dahildir. Kimse açmamışsa baraj 71, çift dendiyse taban 101'dir.<br>
       <b>Çift demenin üç yolu:</b> ① Sağdan taş alıp o tur açmamak — attığın anda çift sayılırsın. ② Attığın taşı biri düz açmak için isterse “çift diyorum” demek. ③ Doğrudan 5 çift açmak. Bunun dışında keyfî olarak çift denmez.<br>
       <b>Açanın taşı serbest:</b> Açmış bir oyuncunun attığı taş sorulmadan alınır. Açmamış oyuncudan alırken çift hakkı sorulur. Sen de açtıysan hem işlemek hem <b>yeni per kurmak</b> için taş alabilirsin — ama aldığın taşı o tur yere indirmelisin, indirmezsen 71 ceza. Henüz açmamışsan alıp devam etmek serbest; sadece o tur açıyorsan taşı açışına katmalısın.<br>
       <b>Çift hakkı:</b> Sağdan aldığın taşla düz açacaksan perleri hazırlayıp <b>Yere aç</b> dersin; o anda taşı atan oyuncuya sorulur. Çift derse taşı kullanamazsın — ya geri bırakıp ortadan çekersin, ya da sen de çifte dönersin.<br>
       <b>Çift moduna geçince:</b> Herkes ya elden bitecek, ya 101 üstü açacak, ya da en az 5 çift açacak. Çiftte sıra 5 → 6 → 7.<br>
       <b>Çiftçinin ayrıcalığı:</b> Çifte giden, üstündeki oyuncunun attığı <b>her taşı</b> sormadan alabilir — çift yapsın yapmasın — ya da ortadan çeker. Buna karşılık <b>çiftçinin attığı taşı yalnızca başka bir çiftçi alabilir</b>; düz açmak isteyen o taşa dokunamaz.<br>
       <b>Ödül (X):</b> En yüksek çifti açan — 7 çift <b>XX</b>, 6 çift <b>X</b>, 5 çift ödülsüz. Normal açışta 101 ve üzeri açanlardan en yükseği <b>X</b> alır. Her X oyun sonunda toplamdan <b>101 puan</b> düşer; tabloda sayı olarak değil X olarak görünür.<br>
+      <b>Ceza cezadır:</b> El içinde yediğin cezalar (işlek taş atmak, izin alıp açamamak, aldığın taşı yere indirmemek, yerden taş toplamak) <b>her hâlükârda yazılır</b> — eşin bitirse de, sen bitirsen de silinmez. <b>Tek istisna elde kalan okeydir:</b> sen ya da eşin bitirirse onun 71'i yazılmaz; başkası bitirirse elindekilere okeyin sayısı ve 71 eklenir.<br>
       <b>Ceza:</b> Açamayan 101, düz açan elinde kalanı, <b>çift açan elinde kalanın iki katını</b> yazar. Çift deyip hiç açamayan 101'in iki katı (202).<br>
       <b>Masa:</b> Deste biter ve <b>kimse açamamışsa</b> el masaya gider — puan yazılmaz, aynı el yeniden dağıtılır. Biri açmışsa cezalar normal işler.<br>
-      <b>Çift okey atmak:</b> Elinde <b>son iki taş olarak iki okey</b> kalırsa ikisini birden atıp bitirirsin. Kalan taşların dizilişi serbesttir — seriler ve aynı sayıdan perler karışık olabilir, üçlü de dörtlü de beşli de olur (1-2-3-4-5 · 1-2-3-4 · 1-2-3, ya da 11-11-11-11 · 12-12-12-12 · 13-13-13-13, ya da karışığı). Yeter ki hepsi geçerli per olsun; <b>iki okey perlerin içinde kullanılmaz</b>, boşta durur ve ayrı değerlendirilir. Kural yalnız <b>iki okey</b> için geçerli: tek okey kalmışsa ve yanındaki taş hiçbir yere uymuyorsa bitiremezsin, normal atışa devam edersin. Öbür taşların yere inmiş olması yeter — ister elden bitiyor ol (hepsini bir seferde indirip iki okeyi atarsın, baraj aranmaz), ister daha önce açmış ol ve kalan taşlarını işleyip iki okeyle kal. İkinci okeyi yerden işleyerek de almış olabilirsin. “At” düğmesi o anda <b>“Çift okey at”</b> olur. Tek okey atmak eli ikiye katlıyordu; <b>çift okey dörde katlar</b> ve öbür katlamalarla ayrıca çarpışır — çift diyen varsa onun cezası da dört katına çıkar.<br>
+      <b>Çift okey atmak:</b> Elinde <b>son iki taş olarak iki okey</b> kalırsa ikisini birden atıp bitirirsin. Kalan taşların dizilişi serbesttir — seriler ve aynı sayıdan perler karışık olabilir, üçlü de dörtlü de beşli de olur (1-2-3-4-5 · 1-2-3-4 · 1-2-3, ya da 11-11-11-11 · 12-12-12-12 · 13-13-13-13, ya da karışığı). Yeter ki hepsi geçerli per olsun; <b>iki okey perlerin içinde kullanılmaz</b>, boşta durur ve ayrı değerlendirilir. Kural yalnız <b>iki okey</b> için geçerli: tek okey kalmışsa ve yanındaki taş hiçbir yere uymuyorsa bitiremezsin, normal atışa devam edersin. Öbür taşların yere inmiş olması yeter — ister elden bitiyor ol (hepsini bir seferde indirip iki okeyi atarsın), ister daha önce açmış ol ve kalan taşlarını işleyip iki okeyle kal. <b>Sayı şartı:</b> masada <b>hiç açan yoksa</b> kaç puan indirdiğin önemli değil, iki okeyi atıp bitirirsin. <b>Açan varsa yerdeki sayıyı geçmen gerekir</b> — yerde 103 varsa en az 104 indirmelisin; çift dendiyse taban 101, yerde daha yüksek açış varsa o geçerli. <b>Tek okeyde bu şart yoktur</b>, yerdeki sayıyı geçmesen de okeyi atıp bitirirsin. İkinci okeyi yerden işleyerek de almış olabilirsin. “At” düğmesi o anda <b>“Çift okey at”</b> olur. Tek okey atmak eli ikiye katlıyordu; <b>çift okey dörde katlar</b> ve öbür katlamalarla ayrıca çarpışır — çift diyen varsa onun cezası da dört katına çıkar.<br>
       <b>Katlama:</b> Cezalar üç durumda ikiye katlanır: hiç kimse açmamışken elden bitiş, çiftle bitiş, ve bitiren son taşı <b>okey</b> atması. Birleşirler — <b>çiftle bitip son taşı okey atan dört katına</b> çıkarır.<br>
       <b>Okey alma:</b> Okey <b>kendiliğinden gelmez</b> — belki o taşı vermek istemiyorsundur. Yerdeki okeyin yerine uyan taşını <b>seçip “İşle”ye bas</b>, ya da o taşı <b>okeyin üstüne sürükle</b>; taşın okeyin yerine girer, okey senin olur. Alabileceğin bir okey varsa oyun sana alt yazıda hatırlatır, zorlamaz. Şart: açmış olacaksın ve okeyin yeri kesinleşmiş olacak. Yerde S12-K12-OKEY varken okey hem maviyi hem sarıyı temsil edebilir; sadece maviyi işlersen okeyi alamazsın, sarı kimdeyse o işleyip alır. İkisi de sendeyse birini işler, öbürüyle okeyi alırsın. <b>Aldığın okeyi o el içinde yere indirmelisin</b> — işlersin, seri ya da çift yaparsın, son taş olarak atarsın. El biterken elindeyse <b>71 ceza</b> yazarsın, üstüne okeyin sayısı elde kalanlara eklenir (gösterge 6 ise okey 7 sayılır). Sen ya da eşin bitirirse ceza yok.<br>
       <b>Elden bitiş barajsız:</b> Yerden taş almadan, işleme yapmadan tüm elini dizip bitirebilirsin — toplamın 71'in altında olsa bile.<br>
-      <b>Taşı topla / geri al:</b> Bu turda taş işlediysen düğme “İşlemeyi geri al” olur; geri aldığın taşı <b>o tur yeniden yere indirmelisin</b>, elinde kalırsa 71 ceza. Hiç işleme yapmadıysan düğme tüm turu geri alır, taş atınca 71 yazılır.<br>
+      <b>Taşı topla / geri al:</b> Bu turda taş işlediysen düğme “İşlemeyi geri al” olur; geri aldığın taşı <b>o tur yeniden yere indirmelisin</b>, elinde kalırsa 71 ceza. Hiç işleme yapmadıysan düğme tüm turu geri alır.<br>
+      <b>Taş atana kadar düzeltme serbesttir:</b> Yere indirdikten sonra <b>henüz taş atmadıysan</b> hamlen bitmiş sayılmaz. Yanlış hesapladıysan ya da daha iyi bir diziliş gördüysen perleri ıstakaya geri toplar, başka bir kombinasyonla yeniden açarsın — 71 yerine 75 ile, 79 yerine 92 ile. Bu serbesttir, ceza yazılmaz.<br>
+      <b>Ceza taş atınca kesinleşir:</b> Taşı yana attığın an hamle mühürlenir. Açtıysan <b>o el açık kalır</b>; “daha yüksekle açacaktım, vazgeçtim” diyip toplayamazsın. Perleri geri toplayıp <b>açmadan taş atarsan 71 ceza</b> yazılır. Yerden aldığın taş için izin almışsan, taş atarken o taş <b>masada duruyor olmalı</b>; başka bir kombinasyonla açıp o taşı elinde tuttuysan yine 71 yazarsın.<br>
       <b>İşleme:</b> Açtıktan sonra yerdeki perlere taş eklersin. <b>Aynı uca bir turda en fazla 2 taş</b> işlenir, ama perin öbür ucuna ve başka perlere ayrıca işleyebilirsin — yerde 4-5-6 varken elindeki 2 ile 3'ü alt uca, 7'yi üst uca aynı turda koyabilirsin. <b>Çift açan turda yalnız 1 taş</b> işler. Seri açan oyuncu, yerde çift açan varsa elindeki bir çifti turda bir kez oraya işleyebilir.<br>
       <b>Elle işleme:</b> “İşle” düğmesi taşı kendi bulduğu ilk pere koyar. Hangi pere gideceğine kendin karar vermek istersen <b>taşı takozdan alıp doğrudan o perin üstüne sürükle</b>. Uyuyorsa per yeşil, uymuyorsa kırmızı yanar. Sürüklediğin taş <b>perdeki okeyin tam yerine</b> denk geliyorsa bırakınca okey senin olur, taşın onun yerine girer. Bu, elinde tek taş kalsa bile yapılabilir: elde taş sayısı değişmez — okeyi alıp onu atarak bitirebilirsin, o zaman <b>okey attın</b> sayılır ve herkes iki katı yazar.<br>
       <b>Geri bırakma:</b> Sadece yerden aldığın taş geri bırakılabilir; ortadan çektiğin taş geri gitmez.<br>
@@ -525,7 +529,6 @@ details.rules div{padding-top:7px;line-height:1.7}
 /* ================= MODEL ================= */
 const CN=['Kırmızı','Siyah','Mavi','Sarı'];
 const NAMES=['Sen','Zeynep','Murat','Elif'];
-const posOf=i=>i===prevOf(SELF)?'Sol':(i===nextOf(SELF)?'Sağ':'Karşı');
 // Kaç el oynanacağı artık S.hands'te; başlangıç ekranından seçiliyor.
 const TOTAL_HANDS=8;   // yalnız varsayılan
 const totalHands=()=>S.hands||TOTAL_HANDS;
@@ -576,7 +579,7 @@ const pileLeft=()=>S.deck.length+S.center.length;
 const canSeePiles=()=>me().pairs||(S.teams&&S.players[mateOf(SELF)]&&S.players[mateOf(SELF)].pairs);
 
 function newPlayer(i){ return {i,name:NAMES[i],bot:i!==0,hand:[],discards:[],opened:false,pairs:false,
-  pairCount:0,openPoints:0,openPairs:0,openedNow:false,mustOpen:false,proc:0,procMap:{},pendingLay:null,layNow:false,retracted:false,sentMsg:0,tookToOpen:false,procLog:[],mustRelay:null,okeyDebt:null,fine:0}; }
+  pairCount:0,openPoints:0,openPairs:0,openedNow:false,mustOpen:false,proc:0,procMap:{},pendingLay:null,layNow:false,retracted:false,sentMsg:0,tookToOpen:false,procLog:[],mustRelay:null,okeyDebt:null,izinBorcu:null,fine:0}; }
 
 function buildDeck(){
   let id=0; const d=[];
@@ -1599,6 +1602,8 @@ function doUndo(){
   if(d.declared){ me().pairs=false; me().mustOpen=false; if(d.first) S.doubled=false; log('Çift kararını da geri aldın.'); }
   S.lastDraw=null; S.phase='draw'; me().mustOpen=false; me().pendingLay=null;
   log(`${tileName(d.tile)} geri bıraktın.`);
+  if(me().izinBorcu===d.tile.id)
+    log('İzin almıştın — o taşı yere indirmedin, bu tur 71 ceza yazacaksın.',true);
   render();
 }
 
@@ -1720,7 +1725,19 @@ function applyOpen(finish){
   if(me().pairs){ log('· Çift dedin — düz açamazsın, çiftle açacaksın.'); return false; }
   if(S.staging.some(g=>g.pair)){ log('· Düz açışta 2 taşlık grup olmaz.'); return false; }
   const tot=stageTotal(), th=threshold();
-  if(!finish&&tot<th){ log(`· En az ${th} puan gerekiyor. Şu an ${tot}.`); return false; }
+  // Elden bitişte normalde baraj aranmaz. Tek istisna ÇİFT OKEY ile bitiş:
+  // masada açmış biri varsa onun sayısını geçmen gerekir (çift dendiyse 101,
+  // yerde daha yüksek açış varsa o). Kimse açmamışsa şart yok.
+  // Tek okeyle bitişte bu şart hiç aranmaz.
+  const ciftOkeyIle = finish && me().hand.length===2 && me().hand.every(isWild);
+  const acanVar = S.players.some(p=>p.opened);
+  const barajGerek = !finish || (ciftOkeyIle && acanVar);
+  if(barajGerek&&tot<th){
+    log(ciftOkeyIle
+      ? `· Çift okeyle bitirmek için yerdeki sayıyı geçmelisin — en az ${th} gerekiyor, elin ${tot}.`
+      : `· En az ${th} puan gerekiyor. Şu an ${tot}.`);
+    return false;
+  }
   if(!finish&&me().hand.length<1){ log('· Atacak taş bırakmalısın.'); return false; }
   S.staging.forEach(g=>{ S.melds.push({tiles:g.tiles,owner:SELF}); clearLay(me(),g.tiles); clearRelay(me(),g.tiles); });
   S.staging=[]; me().opened=true; me().openedNow=true; me().openPoints=tot; me().mustOpen=false;
@@ -1775,8 +1792,11 @@ function withPairRight(fn,inecek){
       if(!ok){ run(()=>blockedByPairs(prev)); return; }
       run(()=>{
         d.asked=true;
-        // İzin alındı: o taş bu tur mutlaka yere inecek. İnmezse 71 ceza.
+        // İzin alındı: atıcının çift hakkını kullandırdın. O taş bu tur mutlaka
+        // yere inecek. Açamazsan, vazgeçersen ya da taşı geri bırakırsan
+        // 71 ceza yazarsın — borç "Geri bırak" ile silinmez.
         taker.pendingLay=d.tile.id; taker.layNow=true;
+        taker.izinBorcu=d.tile.id;
         fn();
       });
     });
@@ -2034,6 +2054,19 @@ function doDiscard(auto){
     me().fine+=71;
     log('Aldığın taşı yere indirmedin — 71 ceza.',true);
   }
+  // Atıcı "aç" dediyse o taş turun sonunda YERDE duruyor olmalı. Duruyorsa
+  // borç kapanır. Duruyor olmamasının hiçbir mazereti yok: barajı tutturamadın,
+  // vazgeçtin, açıp geri topladın, taşı geri bıraktın — hepsi 71.
+  // Aynı turdaki "yerden taş topladın" cezasıyla üst üste binmez.
+  if(!bitiyor&&me().izinBorcu){
+    const yerde=S.melds.some(m=>m.tiles.some(t=>t.id===me().izinBorcu));
+    if(!yerde){
+      me().fine+=71;
+      me().retracted=false;
+      log('İzin alıp o taşı yere indirmedin — 71 ceza.',true);
+    }
+  }
+  me().izinBorcu=null;
   if(!bitiyor&&me().mustRelay&&me().hand.some(x=>x.id===me().mustRelay)){
     me().fine+=71;
     log('Geri aldığın taşı yeniden yere indirmedin — 71 ceza.',true);
@@ -2141,13 +2174,20 @@ function tileEl(t,o={}){
   return d;
 }
 let hiCache={key:'',pts:0,pairs:0,cover:0};
+// "Elin X puan" ve "X çift" artık TAKOZDAKİ gerçek dizilişi gösterir.
+// Eskiden elin en iyi ihtimalle kaç edeceğini yazıyordu; taşlar 1-2-4-3 diye
+// dizilmişken bile 6 puan görünüyordu. Artık yan yana getirdiğin geçerli
+// gruplar neyse o yazıyor — sıralamayı düzeltince sayı da düzeliyor.
+// "taş perde" ise elin kapsama gücünü gösterdiği için eskisi gibi kalır.
 function handInfo(){
   const h=me().hand;
-  const key=h.map(t=>t.id).join(',')+'|'+S.okey.c+S.okey.n;
+  const rackKey=S.rack?S.rack.map(r=>r.join('.')).join('|'):'-';
+  const key=h.map(t=>t.id).join(',')+'|'+S.okey.c+S.okey.n+'|'+rackKey;
   if(hiCache.key===key) return hiCache;
-  const r=pack(h,'points',true);
   const c=pack(h,'cover',true);
-  hiCache={key,pts:r.points,pairs:pairCount(h),cover:c.cover};
+  const rb=rackBlocks();
+  const pts=rb.melds.reduce((a,m)=>a+m.points,0);
+  hiCache={key,pts,pairs:rb.pairs.length,cover:c.cover};
   return hiCache;
 }
 
@@ -2260,12 +2300,23 @@ function drawSeat(box,i,horiz){
   box.className=(horiz?'hseat':'vseat')+(S.turn===i?' turn':'');
   box.innerHTML='';
   const b=document.createElement('div'); b.className='bubble'; b.textContent=S.totals[i]; box.appendChild(b);
+  // Yön yazısı (SOL/KARŞI/SAĞ) yok — kim nerede oturuyorsa kartın yeri
+  // zaten onu söylüyor. Ad üstte, taş sayısı altında.
   const info=document.createElement('div');
   info.className='sinfo';
-  info.innerHTML=`<div class="ps">${posOf(i)}</div><div class="nm">${p.name}</div><div class="cnt">${p.hand.length} taş</div>`
+  info.innerHTML=`<div class="nm">${p.name}</div><div class="cnt">${p.hand.length} taş</div>`
     + openTag(p);
-  box.appendChild(info);
   const top=p.discards[p.discards.length-1];
+  // Karşıdaki kart yatay: attığı taş solda, adı sağında. Eskiden taş adın
+  // üstüne biniyordu.
+  let tas=null;
+  if(i!==prevOf(SELF)){
+    if(top) tas=tileEl(top,{sm:true});
+    else { tas=document.createElement('div'); tas.className='ghost'; }
+  }
+  if(horiz&&tas) box.appendChild(tas);
+  box.appendChild(info);
+  if(!horiz&&tas) box.appendChild(tas);
   // "attı" yazısı yok — taşı zaten görüyorsun. Yalnız yığını görme hakkın
   // varsa tıklanacak bir bağ kalıyor.
   if(top&&canSeePiles()){
@@ -2274,11 +2325,6 @@ function drawSeat(box,i,horiz){
     lab.onclick=()=>showPile(i);
     box.appendChild(lab);
   }
-  // Solumdaki oyuncunun attığı taş aşağıdaki yer şeridinde zaten duruyor,
-  // burada ikinci kez gösterme.
-  if(i===prevOf(SELF)) return;
-  if(top) box.appendChild(tileEl(top,{sm:true}));
-  else { const g=document.createElement('div'); g.className='ghost'; box.appendChild(g); }
 }
 
 function render(){

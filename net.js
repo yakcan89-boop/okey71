@@ -125,13 +125,27 @@
     }
   }
 
+  // Davet linkiyle gelen önce masaya BAKAR, sonra rolünü seçer:
+  // oyuncu (boş koltuk), seyirci, ya da bir oyuncunun yancısı.
   async function join() {
     const el = document.getElementById('lbCode');
     const code = ((el && el.value) || '').trim().toUpperCase();
     if (code.length !== 4) { note('Oda kodu 4 harf olmalı.'); return; }
+    note('Masaya bakılıyor…');
+    let o;
+    try {
+      const r = await fetch('/api/oda?code=' + encodeURIComponent(code));
+      o = await r.json();
+      if (o.err) { note('Hata: ' + o.err); return; }
+    } catch (e) { note('Bağlanamadım: ' + e.message); return; }
+    note('');
+    rolSec(code, o);
+  }
+
+  async function girisYap(code, rol, yanciSeat) {
     note('Odaya giriliyor…');
     try {
-      const d = await post('/api/join', { code, name: nameVal() });
+      const d = await post('/api/join', { code, name: nameVal(), rol, yanciSeat });
       if (d.err) { note('Hata: ' + d.err); return; }
       CODE = d.code; PID = d.pid; SEAT = d.seat;
       localStorage.setItem('okey_code', CODE);
@@ -141,6 +155,60 @@
     } catch (e) {
       note('Bağlanamadım: ' + e.message);
     }
+  }
+
+  function rolSec(code, o) {
+    const bosSayi = o.seats.filter(x => !x).length;
+    const kucuk = 'font:inherit;font-size:12px;font-weight:700;padding:7px 12px;border-radius:7px;cursor:pointer;';
+    const altin = kucuk + 'border:1px solid #f5c33b;background:linear-gradient(180deg,#f5c33b,#a9761a);color:#3a2503';
+    const sade  = kucuk + 'border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.13);color:#eaf6ff';
+
+    const koltukSatir = i => {
+      const s = o.seats[i];
+      if (!s) {
+        return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:5px;' +
+          'border-radius:8px;background:rgba(255,255,255,.06)">' +
+          '<span style="flex:1;text-align:left;opacity:.6"><i>Boş koltuk ' + (i + 1) + '</i></span>' +
+          '<button data-rol="oyuncu" style="' + altin + '">Oyuncu ol</button></div>';
+      }
+      const y = o.yancilar[i], kapali = o.yanciKapali[i];
+      let sag;
+      if (y) sag = '<span style="font-size:11px;opacity:.6">yancısı: ' + y + '</span>';
+      else if (kapali) sag = '<span style="font-size:11px;opacity:.4">yancı kapalı</span>';
+      else sag = '<button data-yanci="' + i + '" style="' + sade + '">Yancısı ol</button>';
+      return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:5px;' +
+        'border-radius:8px;background:rgba(255,255,255,.12)">' +
+        '<b style="flex:1;text-align:left">' + s.name + '</b>' + sag + '</div>';
+    };
+
+    lobbyHTML(
+      '<div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;opacity:.6">oda</div>' +
+      '<div style="font-size:34px;font-weight:900;letter-spacing:.12em;margin:2px 0 6px">' + code + '</div>' +
+      '<div style="font-size:13px;opacity:.85;margin-bottom:10px">' +
+        (o.started ? 'Oyun başlamış · El ' + '—' : 'Masa henüz başlamadı') +
+        ' · ' + o.hands + ' el · ' + (o.teams ? 'eşli' : 'tek kişilik') +
+        '<br><b>Nasıl katılmak istiyorsun?</b>' +
+      '</div>' +
+      '<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;margin-bottom:4px">koltuklar</div>' +
+      [0, 1, 2, 3].map(koltukSatir).join('') +
+      '<div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;opacity:.5;margin:8px 0 4px">izleyici</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:5px;' +
+      'border-radius:8px;background:rgba(255,255,255,.06)">' +
+        '<span style="flex:1;text-align:left;opacity:.75">Seyirci — masayı görürsün, elleri görmezsin' +
+        (o.watcherCount ? ' <small style="opacity:.6">(' + o.watcherCount + ' kişi izliyor)</small>' : '') +
+        '</span><button data-rol="seyirci" style="' + sade + '">İzle</button></div>' +
+      '<div style="font-size:11px;opacity:.55;line-height:1.5;margin-top:8px">' +
+        'Yancı, yanına oturduğu oyuncunun <b>elini görür</b> ve ona akıl verir; hamleyi oyuncu yapar. ' +
+        (bosSayi ? '' : 'Masa dolu — boş koltuk açılınca seyirciyken oturabilirsin.') +
+      '</div>'
+    );
+
+    lob.querySelectorAll('[data-rol]').forEach(b => {
+      b.onclick = () => girisYap(code, b.dataset.rol);
+    });
+    lob.querySelectorAll('[data-yanci]').forEach(b => {
+      b.onclick = () => girisYap(code, 'yanci', +b.dataset.yanci);
+    });
   }
 
   function seatRow(v, i) {
