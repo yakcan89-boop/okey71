@@ -482,6 +482,8 @@ details.rules div{padding-top:7px;line-height:1.7}
       <b>Baraj katlamalı:</b> İlk açış en az <b>71</b>. Biri 85 açtıysa sonraki en az 86 açmalı. <b>Açtıktan sonra yere koyduğun ya da işlediğin taşlar barajı yükseltmez</b> — sadece ilk açış sayılır.<br>
       <b>Masadan ayrılmak (çok oyunculu):</b> Oyun ekranının sol üstünde <b>Masadan ayrıl</b> düğmesi var. Kendi isteğinle ayrılırsan <b>koltuğun boşalır</b>, elini bot devralır ve yerine başkası oturabilir — o zaman geri dönemezsin, oda koduyla yeniden katılman gerekir. <b>Bağlantın koptuysa ayrılma:</b> koltuk sana ayrılı kalır, 70 saniye sonra bota devredilir ama sen dönünce koltuğunu ve taşlarını geri alırsın. Masa doluyken katılan biri <b>seyirci</b> olur; bir koltuk boşalınca “Otur” diyerek oyuna girer ve o koltuğa bakan botun elini devralır.<br>
       <b>Seyirci ve yancı:</b> <b>Seyirci</b> sadece masayı görür — yerdeki perleri, atılan taşları, puan tablosunu. Kimsenin elini göremez. <b>Yancı</b> ise bir oyuncunun yanına oturur: <b>o oyuncunun elini de görür</b> ve ona akıl verebilir — “desteden çek”, “yerden al”, “bu taşı at”, “yere indir”, “bekle”, “çifte git”. Bunlar sadece tavsiyedir, hamleyi oyuncu yapar; yancı hiçbir düğmeye basamaz. Tavsiye yalnız o oyuncuya gider, masaya yayılmaz. Bir oyuncunun tek yancısı olur. Oyuncu yancısını <b>kovabilir</b> ya da <b>yancı yerini büsbütün kapatabilir</b> — kapalıyken kimse yanına oturamaz.<br>
+      <b>Aldığın taşı aynı turda geri atamazsın:</b> Yerden aldığın taşı o tur atamazsın; elinde tutar, sıra sana geldiğinde atarsın. <b>Çiftçi için de geçerlidir</b> — çiftçi her taşı alabilir ve elinde tutabilir, ama aldığı taşı hemen öbür tarafa yollayamaz.<br>
+      <b>Kim kime sorar:</b> Atıcı <b>henüz açmamışsa</b>, taşını alan kişi o taşı yere indirirken ona <b>her zaman</b> sorulur — alan açmış olsun olmasın fark etmez. Atıcı <b>açmışsa</b> hiç sorulmaz; alan hem düz hem çift olarak taşı alıp kullanabilir, ama <b>aldığı taşı o tur yere indirmek zorundadır</b>. Atıcı <b>çifte gitmişse</b> taşını yalnız başka bir çiftçi alabilir ve ona da sorulmaz. Bu kurallar bot ile insan için aynıdır.<br>
       <b>Çift hakkı ne zaman sorulur:</b> Attığın taşı alan oyuncu, o taşı <b>gerçekten yere indirdiği anda</b> sana sorulur — “senin taşınla düz açacağım, çift diyor musun?”. Taşı alıp kendi taşlarıyla açarsa sana sorulmaz, sorulacak bir şey yoktur. “Al” dersen o taş <b>o tur yere inmek zorundadır</b>. İzin verildiği an açış zorunlu olur. Alan oyuncu <b>açamazsa</b> (puanı barajı tutmazsa), <b>vazgeçerse</b>, <b>açıp sonra geri toplarsa</b> ya da <b>taşı geri bırakırsa</b> — elinde baraj olsa bile — <b>71 ceza</b> yazar — senin çift hakkını boşuna kullandırmış olur. Bu ceza taşı geri bırakmakla ya da yeniden taş çekmekle silinmez. <b>“Çift diyorum” dersen ceza yoktur</b> — açılışı sen engellemiş olursun, alan oyuncunun eli barajı tutmasa bile ceza yazmaz. Taşı geri bırakır ya da kendisi de çifte döner. Karşı taraf sana çift dedirtmek için taşı almış olsa bile durum değişmez: ceza <b>ancak izin verildiği hâlde açılamazsa</b> yazılır.<br>
       <b>Baraj hesabı:</b> Soru sorulduğunda yerdeki durum hesaba katılır. Yerde 101'lik bir açış varsa yeni açışın <b>102 ve üstü</b> olması gerekir; yerden alınan taş bu toplama dahildir. Kimse açmamışsa baraj 71, çift dendiyse taban 101'dir.<br>
       <b>Çift demenin üç yolu:</b> ① Sağdan taş alıp o tur açmamak — attığın anda çift sayılırsın. ② Attığın taşı biri düz açmak için isterse “çift diyorum” demek. ③ Doğrudan 5 çift açmak. Bunun dışında keyfî olarak çift denmez.<br>
@@ -1221,10 +1223,28 @@ function botDraw(p,next){
 
   if(p.opened){
     if(p.pairs) return pairCount(p.hand.concat([top]))>pairCount(p.hand) ? grab() : fromDeck();
-    if(isWild(top)||isLive(top)) return grab();
-    const before=pack(p.hand,'points'), after=pack(p.hand.concat([top]),'points');
-    if(after.points>before.points) return grab();   // yeni per kurabiliyorsa alır
-    return fromDeck();
+    // Aldığı taşı O TUR yere indirebilecek mi? İndiremeyecekse almaz.
+    // Eskiden "elimi güçlendirir" diye alıp aynı turda geri atıyordu.
+    const islenebilir = S.melds.some(m=>canAddTable(m,top)||meldOkeySlot(m,top));
+    const after=pack(p.hand.concat([top]),'points');
+    const yeniPer = after.melds.some(m=>m.tiles.some(t=>t.id===top.id));
+    if(!isWild(top)&&!islenebilir&&!yeniPer) return fromDeck();
+    // Atıcı henüz açmamışsa çift hakkı onun — insan oyuncuda olduğu gibi sorulur.
+    if(!prev.opened&&!prev.pairs&&!isWild(top)){
+      grabOnly();
+      p.pendingLay=top.id; p.layNow=true;   // inmezse 71
+      return askPairRight(prev,p,top,ok=>{
+        if(ok) return next();
+        p.hand=p.hand.filter(t=>t.id!==top.id);
+        prev.discards.push(top);
+        p.pendingLay=null; p.layNow=false;
+        log(`${p.name} çift dendiği için taşı geri bıraktı, desteden çekti.`);
+        fromDeck();
+      });
+    }
+    grabOnly();
+    p.pendingLay=top.id; p.layNow=true;      // aldığı taş bu tur yere inecek
+    return next();
   }
   if(p.pairs){
     if(isWild(top)||pairCount(p.hand.concat([top]))>pairCount(p.hand)) return grab();
@@ -1454,19 +1474,23 @@ function takimBlokla(p){
 function botDiscard(p){
   if(!p.hand.length) return null;
   if(p.hand.length===1) return p.hand[0];
+  // Yerden aldığı taşı aynı turda geri atamaz — insan oyuncudaki kuralın aynısı.
+  const yasak = (S.lastDraw&&S.lastDraw.from==='floor') ? S.lastDraw.tile.id : null;
+  const secilebilir = t => !yasak || t.id!==yasak;
   const emir = isMate(p)&&S.mateMsg==='tasla'&&elZayif(p);
   if(emir||takimBlokla(p)){
     const t=taslaAt(p);
-    if(t) return t;
+    if(t&&secilebilir(t)) return t;
   }
   const cov = p.pairs ? null : pack(p.hand,'cover');
   let pool = p.pairs ? buildPairs(p.hand).rest : cov.leftover;
   const close = cov ? cov.leftover.length<=2 : false;   // elden bitmeye yakınsa risk alabilir
   const wVal = close ? 0.12 : 0.5;                      // yoksa büyük taş elde tutulur
   if(!pool.length) pool=p.hand.slice();
-  let f=pool.filter(t=>!isWild(t)&&!t.fake);
-  if(!f.length) f=p.hand.filter(t=>!isWild(t)&&!t.fake);
-  if(!f.length) f=p.hand.slice();
+  let f=pool.filter(t=>!isWild(t)&&!t.fake&&secilebilir(t));
+  if(!f.length) f=p.hand.filter(t=>!isWild(t)&&!t.fake&&secilebilir(t));
+  if(!f.length) f=p.hand.filter(secilebilir);
+  if(!f.length) f=p.hand.slice();          // başka çare yoksa
   const safe=f.filter(t=>!isLive(t));
   if(safe.length) f=safe;
   const es=p.hand.map(eff);
@@ -2039,6 +2063,16 @@ function doDiscard(auto){
   if(ts.length!==1){ log('· Atmak için tek taş seç.'); return; }
   if(S.staging.length){ log('· Önce grupları aç ya da geri al.'); return; }
   const t=ts[0];
+  // Yerden aldığın taşı AYNI TURDA geri atamazsın. Çiftçi için de geçerli:
+  // alır, elinde tutar, sırası gelince atabilir. Böylece bir oyuncunun taşını
+  // alıp hemen öbür tarafa yollamak diye bir şey olmuyor.
+  {
+    const d0=S.lastDraw;
+    if(d0&&d0.from==='floor'&&d0.tile.id===t.id){
+      log('· Yerden aldığın taşı aynı turda geri atamazsın — sıra sana gelince atarsın.',true);
+      return;
+    }
+  }
   // Bu atış eli bitiriyor mu? Elde tek taş kaldıysa bu son taştır.
   // Bitiren oyuncu tur sonu cezalarını yemez: işlek taş atmak, aldığı taşı
   // yere indirmemiş olmak, geri aldığı taşı yeniden indirmemiş olmak —
