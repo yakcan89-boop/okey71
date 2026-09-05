@@ -268,12 +268,21 @@ Hiç kimse açmadan el biterse puan yazılmaz, **aynı el yeniden dağıtılır*
 | Rol | Ne görür | Ne yapar |
 |---|---|---|
 | **Oyuncu** | Kendi eli + masa | Oynar |
-| **Yancı** | Yanına oturduğu oyuncunun eli + masa | Hamle yapamaz, kısa tavsiye yazar |
+| **Yancı** | Yalnız masa — oyuncunun elini **görmez** | Hamle yapamaz, kısa tavsiye yazar |
 | **Seyirci** | Yalnız masa | Boş koltuk açılırsa oturabilir |
 
-- Oyuncu kendi yancı yerini kapatabilir veya yancısını kovabilir.
+- **Yancı, yanına oturduğu oyuncunun elini görmez.** Yere açılan perleri, atılan
+  taşları, taş sayılarını ve masadaki genel kaydı görür; oyuncunun çektiği taşın
+  adı ona "desteden çekti" diye görünür.
+- Tavsiyeler masaya bakarak verilebilecek genel yönlendirmelerdir
+  ("yerden alma", "yere indir", "okeyi al" gibi).
 - Bir oyuncunun aynı anda en fazla bir yancısı olur.
 - Yancının tavsiyesi yalnız kendi oyuncusuna görünür, masaya yayılmaz.
+- Oyuncu **yancı yerini her an açıp kapatabilir**. Kapatınca varsa mevcut yancısı
+  düşer ve o koltuğa kimse yancı olamaz.
+- Oyuncu yancısını **kovabilir. Kovulan kişi o oyuncuya geri dönemez** — ne aynı
+  kimlikle ne de aynı adla. Masada sade seyirci olarak kalabilir ve **başka bir
+  oyuncunun** yancısı olabilir. Koltuk boşalırsa o koltuğun yasak listesi silinir.
 
 ### 12.1 Kopma
 

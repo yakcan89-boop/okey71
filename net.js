@@ -584,9 +584,10 @@
   }
 
   /* ---------- yancı çubuğu ----------
-     Yancıysan: oyuncunun elini görürsün, hamle yapamazsın, hazır tavsiyeleri
-     yollarsın. Oyuncuysan: yancının adını görür, kovabilir ya da yancı yerini
-     büsbütün kapatabilirsin. */
+     Yancıysan: oyuncunun ELİNİ GÖRMEZSİN — masayı, yere inen perleri ve
+     atılan taşları izler, hazır tavsiyeleri yollarsın. Oyuncuysan: yancının
+     adını görür, kovabilir (kovulan geri dönemez) ya da yancı yerini
+     her zaman açıp kapatabilirsin. */
   function cubuk() {
     let c = document.getElementById('yanciBar');
     if (!c) {
@@ -607,13 +608,17 @@
     document.body.style.paddingBottom = '';
   }
 
+  // Yancı eli görmediği için "şu taşı at" diyemez; tavsiyeler masaya bakarak
+  // verilebilecek genel yönlendirmelerle sınırlı.
   const ONERILER = [
     ['Desteden çek', 'desteden çek'],
     ['Yerden al',    'yerden al'],
-    ['Bu taşı at',   null],
+    ['Yerden alma',  'yerden alma'],
     ['Yere indir',   'yere indir, aç'],
     ['Bekle',        'bekle, tutma'],
-    ['Çifte git',    'çifte git']
+    ['Çifte git',    'çifte git'],
+    ['Okeyi al',     'yerdeki okeyi al'],
+    ['Dikkat et',    'dikkat, işlek taş var']
   ];
 
   function yanciCubugu(v) {
@@ -632,18 +637,12 @@
       c.innerHTML = '';
       const et = document.createElement('span');
       et.style.cssText = 'width:100%;text-align:center;opacity:.8;font-weight:400;margin-bottom:2px';
-      et.innerHTML = '<b>' + v.yanciAdi + '</b> adlı oyuncunun yancısısın — elini görüyorsun, hamleyi o yapar.';
+      et.innerHTML = '<b>' + v.yanciAdi + '</b> adlı oyuncunun yancısısın — elini görmezsin, ' +
+                     'masayı izler ve tavsiye yollarsın.';
       c.appendChild(et);
       ONERILER.forEach(o => {
         c.appendChild(dgm(o[0], async () => {
-          let metin = o[1];
-          if (!metin) {                       // "Bu taşı at": takozdan seçilen taş
-            const ids = Array.from(api.S.selected || []);
-            const el = (api.S.players[v.yanci] || {}).hand || [];
-            const t = el.find(x => x.id === ids[0]);
-            if (!t) { flash('Önce takozdan bir taş seç.'); return; }
-            metin = api.tileName(t) + ' at';
-          }
+          const metin = o[1];
           const r = await post('/api/oneri', { code: CODE, pid: PID, metin });
           if (r && r.err) flash(r.err); else flash('Tavsiye yollandı: ' + metin);
         }));
@@ -655,16 +654,16 @@
     }
 
     // --- oturan oyuncunun yancı ayarları ---
+    if (v.seat == null || v.seat < 0) { cubukSil(); return; }
     const benimYanci = (v.yancilar || [])[v.seat];
     const kapali = (v.yanciKapali || [])[v.seat];
-    if (!benimYanci && !kapali) { cubukSil(); return; }
     const c = cubuk();
     c.innerHTML = '';
     const et = document.createElement('span');
     et.style.cssText = 'opacity:.85;font-weight:400';
     et.innerHTML = benimYanci
       ? 'Yancın: <b>' + benimYanci + '</b>'
-      : 'Yancı yerin <b>kapalı</b>';
+      : (kapali ? 'Yancı yerin <b>kapalı</b>' : 'Yancı yerin <b>açık</b> — boş');
     c.appendChild(et);
     const dgm = (metin, fn, renk) => {
       const b = document.createElement('button');
@@ -676,7 +675,8 @@
     };
     if (benimYanci) {
       dgm('Kov', async () => {
-        if (confirm(benimYanci + ' yancılıktan çıkarılsın mı?')) await post('/api/yancikov', { code: CODE, pid: PID });
+        if (confirm(benimYanci + ' yancılıktan çıkarılsın mı?\n\nGeri dönemez.'))
+          await post('/api/yancikov', { code: CODE, pid: PID });
       }, 'rgba(224,87,79,.55)');
     }
     dgm(kapali ? 'Yancı yerini aç' : 'Yancı yerini kapat', async () => {

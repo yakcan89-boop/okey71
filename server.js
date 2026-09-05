@@ -58,6 +58,9 @@ function makeRoom(teams) {
     // yanci=koltuk ise o oyuncunun yancısı (ONUN elini de görür, akıl verir).
     watchers: [],                      // {pid, name, lastSeen, yanci}
     yanciKapali: [false, false, false, false],  // oyuncu yancı yerini kapatabilir
+    // Kovulan yancıların pid'leri — koltuk başına. Kovulan kişi o oyuncunun
+    // yancısı olarak GERİ DÖNEMEZ; sade seyirci olarak kalabilir.
+    yanciKovulan: [[], [], [], []],
     oneri: [null, null, null, null],   // yancıdan oyuncuya son tavsiye
     owner: null,                       // oda sahibinin pid'i (koltuk değişse de sabit)
     version: 0,
@@ -222,8 +225,8 @@ function closeRoom(room, sebep) {
   }
 }
 
-// Kim ne görür: oturan kendi elini, yancı yanına oturduğu oyuncunun elini,
-// sade seyirci hiçbir el görmez.
+// Kim ne görür: oturan kendi elini görür. Yancı oyuncunun ELİNİ GÖRMEZ —
+// yalnız masayı, yere inen perleri ve genel kaydı görür. Sade seyirci de öyle.
 function bakisFor(room, pid) {
   const seat = seatOf(room, pid);
   if (seat >= 0) return viewFor(room, seat);
@@ -231,12 +234,26 @@ function bakisFor(room, pid) {
   if (wi < 0) return null;
   const w = room.watchers[wi];
   if (w.yanci != null && room.seats[w.yanci]) {
+    // Ekranın çizilebilmesi için koltuk numarası gerekiyor, ama o koltuğun
+    // eli ve ona özel bilgiler burada körleştiriliyor.
     const v = viewFor(room, w.yanci);
+    const p = v.players[w.yanci];
+    p.hand = p.hand.map(t => ({ id: t.id, h: 1 }));
+    p.procLog = []; p.procMap = {};
+    p.mustOpen = false; p.pendingLay = null; p.mustRelay = null;
+    p.okeyDebt = null; p.layNow = false; p.retracted = false; p.tookToOpen = false;
+    // Oyuncuya özel satırlar (çektiği taşın adı gibi) genel hâliyle görünsün.
+    v.log = room.log.slice(-40).map(e => {
+      if (e.seat == null) return { m: e.m, big: e.big, t: e.t };
+      return e.genel ? { m: e.genel, big: false, t: e.t } : null;
+    }).filter(Boolean);
+    v.lastDraw = null;                       // çekilen taşın adı sızmasın
     v.yanci = w.yanci;                       // kimin yancısıyım
     v.yanciAdi = room.seats[w.yanci].name;
     v.readOnly = true;                       // hamle yapamaz
     v.owner = false;
     v.ask = null;                            // soruyu oyuncu cevaplar
+    v.oneri = null;                          // tavsiyeyi yollayan kendisi
     v.snap = false;
     v.watcher = false;
     return v;
@@ -571,6 +588,9 @@ const server = http.createServer(async (req, res) => {
       if (!room.seats[hedef]) return send(res, 400, { err: 'O koltukta insan yok.' });
       if (room.yanciKapali[hedef]) return send(res, 400, { err: 'O oyuncu yancı istemiyor.' });
       if (yanciOf(room, hedef)) return send(res, 400, { err: 'O oyuncunun yancısı zaten var.' });
+      // Kovulan aynı adla dönmeye çalışabilir; ad da yasak listesinde tutuluyor.
+      if (room.yanciKovulan[hedef].indexOf(ad.toLocaleLowerCase('tr')) >= 0)
+        return send(res, 400, { err: 'O oyuncu seni yancılıktan çıkardı.' });
       room.watchers.push({ pid, name: ad, lastSeen: Date.now(), yanci: hedef });
       room.log.push({ m: `· ${ad}, ${room.seats[hedef].name} adlı oyuncunun yancısı oldu.`, t: Date.now() });
       push(room);
@@ -668,6 +688,9 @@ const server = http.createServer(async (req, res) => {
     }
     if (!room.seats[hedef]) return send(res, 400, { err: 'O koltukta insan yok.' });
     if (room.yanciKapali[hedef]) return send(res, 400, { err: 'O oyuncu yancı istemiyor.' });
+    if (room.yanciKovulan[hedef].indexOf(w.pid) >= 0 ||
+        room.yanciKovulan[hedef].indexOf(w.name.toLocaleLowerCase('tr')) >= 0)
+      return send(res, 400, { err: 'O oyuncu seni yancılıktan çıkardı — geri dönemezsin.' });
     const varOlan = yanciOf(room, hedef);
     if (varOlan && varOlan !== w) return send(res, 400, { err: 'O oyuncunun yancısı zaten var.' });
     w.yanci = hedef;
@@ -705,7 +728,9 @@ const server = http.createServer(async (req, res) => {
     if (!y) return send(res, 400, { err: 'Yancın yok.' });
     y.yanci = null;
     room.oneri[seat] = null;
-    room.log.push({ m: `· ${room.seats[seat].name}, yancısı ${y.name} adlı kişiyi kaldırdı.`, t: Date.now() });
+    // Kovulan geri gelemesin: hem kimliği hem adı yasak listesine yazılıyor.
+    room.yanciKovulan[seat].push(y.pid, y.name.toLocaleLowerCase('tr'));
+    room.log.push({ m: `· ${room.seats[seat].name}, yancısı ${y.name} adlı kişiyi kaldırdı — geri dönemez.`, t: Date.now() });
     push(room);
     return send(res, 200, { ok: true });
   }
@@ -741,6 +766,7 @@ const server = http.createServer(async (req, res) => {
     const ad = room.seats[seat].name;
     room.watchers.forEach(w => { if (w.yanci === seat) w.yanci = null; });
     room.yanciKapali[seat] = false;
+    room.yanciKovulan[seat] = [];        // koltuk boşaldı, yasaklar da o kişiyle gitti
     room.oneri[seat] = null;
     room.seats[seat] = null;                     // koltuk BOŞALIR, başkası oturabilir
     devretSahiplik(room, d.pid);
