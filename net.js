@@ -348,6 +348,7 @@
     S.doubled = v.doubled; S.topOpen = v.topOpen; S.pairsMax = v.pairsMax;
     S.okey = v.okey; S.gosterge = v.gosterge;
     S.totals = v.totals; S.xm = v.xm; S.history = v.history;
+    S.currentTour = v.currentTour || 1; S.turlar = v.turlar || [];
     S.deck = new Array(v.deck).fill(0);
     S.center = new Array(v.center).fill(0).map((_, i) => ({ id: -100 - i }));
     S.melds = v.melds;
@@ -435,12 +436,26 @@
     // Maç sonu perdesinde tam puan tablosu geliyor, kart geniş olsun
     veil.classList.toggle('wide', !!n.wide);
     const vb = document.getElementById('vBtn');
-    vb.style.display = ''; vb.textContent = n.btn || 'Devam';
-    vb.onclick = () => {
+    // Tur sonu perdesi iki seçenekli gelir; el sonu perdesi tek düğme.
+    const btns = n.btns && n.btns.length ? n.btns : [{ t: n.btn || 'Devam', cls: '' }];
+    const bas = i => {
+      document.querySelectorAll('.veil .opt').forEach(x => x.remove());
       veil.classList.add('hidden');
       veil.classList.remove('wide');
-      post('/api/next', { code: CODE, pid: PID });
+      post('/api/next', { code: CODE, pid: PID, idx: i });
     };
+    if (btns.length === 1) {
+      vb.style.display = ''; vb.textContent = btns[0].t;
+      vb.onclick = () => bas(0);
+    } else {
+      vb.style.display = 'none';
+      btns.forEach((b, i) => {
+        const el = document.createElement('button');
+        el.className = 'opt ' + (b.cls || ''); el.textContent = b.t; el.style.margin = '4px';
+        el.onclick = () => bas(i);
+        vb.parentNode.appendChild(el);
+      });
+    }
     veil.classList.remove('hidden');
   }
 

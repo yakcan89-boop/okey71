@@ -452,7 +452,7 @@ const pileLeft=()=>S.deck.length+S.center.length;
 const canSeePiles=()=>me().pairs||(S.teams&&S.players[mateOf(SELF)]&&S.players[mateOf(SELF)].pairs);
 
 function newPlayer(i){ return {i,name:NAMES[i],bot:i!==0,hand:[],discards:[],opened:false,pairs:false,
-  pairCount:0,openPoints:0,openPairs:0,openedNow:false,mustOpen:false,proc:0,procMap:{},pendingLay:null,layNow:false,retracted:false,sentMsg:0,tookToOpen:false,procLog:[],mustRelay:null,okeyDebt:null,izinBorcu:null,sonAlinan:null,barajYok:false,fine:0}; }
+  pairCount:0,openPoints:0,openPairs:0,acilis:0,openedNow:false,mustOpen:false,proc:0,procMap:{},pendingLay:null,layNow:false,retracted:false,sentMsg:0,tookToOpen:false,procLog:[],mustRelay:null,okeyDebt:null,izinBorcu:null,sonAlinan:null,barajYok:false,fine:0}; }
 
 function buildDeck(){
   let id=0; const d=[];
@@ -907,7 +907,8 @@ function endHand(winner,note){
     if(S.ciftOkeyFinish){ mult*=4; why.push('ÇİFT OKEY attı ×4'); }
     else if(S.okeyFinish){ mult*=2; why.push('okey attı ×2'); }
   }
-  const topNormal = Math.max(0, ...S.players.filter(p=>p.opened&&!p.pairs).map(p=>p.openPoints));
+  // X (101 düşümü) açış anındaki sayıya bakar — sonradan indirilenler sayılmaz.
+  const topNormal = Math.max(0, ...S.players.filter(p=>p.opened&&!p.pairs).map(p=>p.acilis||p.openPoints));
   const topPairs  = Math.max(0, ...S.players.filter(p=>p.opened&&p.pairs).map(p=>p.openPairs));
   const lines=[];
   const row={hand:S.handNo,cells:[],winner:(winner==null?null:winner)};
@@ -932,7 +933,7 @@ function endHand(winner,note){
     let bonus=0;
     if(p.opened&&p.pairs&&p.openPairs===topPairs)
       bonus = p.openPairs>=7 ? -202 : (p.openPairs===6 ? -101 : 0);
-    else if(p.opened&&!p.pairs&&p.openPoints>=101&&p.openPoints===topNormal) bonus=-101;
+    else if(p.opened&&!p.pairs&&(p.acilis||p.openPoints)>=101&&(p.acilis||p.openPoints)===topNormal) bonus=-101;
     const x = bonus===-202 ? 2 : (bonus===-101 ? 1 : 0);
     const written=pts+p.fine;
     S.totals[p.i]+=written;
@@ -994,7 +995,9 @@ function endHand(winner,note){
 }
 
 function gosterTurBitisEkrani(buTur, elGovdesi){
-  let html = `<div style="padding:10px;background:rgba(245,195,59,.18);border:1px solid rgba(245,195,59,.4);border-radius:8px;margin-bottom:12px;">
+  // Son elin puan satırları da görünmeli — turun son eli sessizce yutulmasın.
+  let html = elGovdesi ? `<div style="margin-bottom:10px">${elGovdesi}</div>` : '';
+  html += `<div style="padding:10px;background:rgba(245,195,59,.18);border:1px solid rgba(245,195,59,.4);border-radius:8px;margin-bottom:12px;">
     <div style="font-size:16px;font-weight:900;color:var(--gold);">${buTur.turNo}. TUR TAMAMLANDI</div>
     <div style="margin-top:5px;font-size:13px;">🏆 <b>Tur Kazananı:</b> <span style="color:#8bd6a4;font-weight:700">${buTur.kazanan}</span></div>
     <div style="font-size:13px;margin-top:2px;">❌ <b>Tur Kaybedeni:</b> <span style="color:#ff9898;font-weight:700">${buTur.kaybeden}</span></div>
@@ -1003,25 +1006,13 @@ function gosterTurBitisEkrani(buTur, elGovdesi){
   html += turGecmisiHTML();
   html += `<div style="margin-top:10px;">${scoreTableHTML()}</div>`;
 
-  const butonlar = [
-    {
-      t: `${buTur.turNo + 1}. Tura Geç`,
-      cls: 'gold',
-      fn: () => {
-        S.currentTour++;
-        sonrakiTuraBasla();
-      }
-    },
-    {
-      t: 'Seriyi Bitir (Turları Sıfırla)',
-      cls: 'red',
-      fn: () => {
-        seriyiBitirVeSifirla();
-      }
-    }
-  ];
-
-  askVeil(`${buTur.turNo}. Tur Bitti`, html, butonlar, {});
+  // Tablo, sıfırlamadan ÖNCE kurulmuş olmalı — kuruldu, artık düğmeler bağlanabilir.
+  showVeil(`${buTur.turNo}. Tur Bitti`, html, [
+    { t: `${buTur.turNo + 1}. Tura Geç`, cls: 'gold',
+      fn: () => { S.currentTour++; sonrakiTuraBasla(); } },
+    { t: 'Seriyi Bitir', cls: 'red',
+      fn: () => seriyiBitirVeSifirla() }
+  ], null, true);
 }
 
 function sonrakiTuraBasla(){
@@ -1058,6 +1049,8 @@ function seriyiBitirVeSifirla(){
   showVeil('Tüm Oyun Serisi Bitti', ozet, 'Sıfırdan Yeni Oyun Kur', () => {
     S.turlar = [];
     S.currentTour = 1;
+    // Ağda masayı sunucu yönetiyor; tek kişilik kurulum sorusu açılmamalı.
+    if(window.__NET__){ sonrakiTuraBasla(); return; }
     startGame();
   }, true);
 }
@@ -1301,7 +1294,7 @@ function botPlay(p){
       if(rc.leftover.length===0&&p.hand.length>=14){
         rc.melds.forEach(m=>{ S.melds.push({tiles:m.tiles,owner:p.i}); clearLay(p,m.tiles); });
         layCheck(p);
-        p.hand=[]; p.opened=true; p.openedNow=true; p.openPoints=rc.points;
+        p.hand=[]; p.opened=true; p.openedNow=true; p.openPoints=rc.points; p.acilis=rc.points;
         S.topOpen=Math.max(S.topOpen,rc.points); S.okeyFinish=false;
         endHand(p.i,`${p.name} elden bitirdi.`); return;
       }
@@ -1324,7 +1317,7 @@ function botPlay(p){
           p.hand=p.hand.filter(t=>!ids.has(t.id));
         });
         layCheck(p);
-        p.opened=true; p.openedNow=true; p.openPoints=rp.points;
+        p.opened=true; p.openedNow=true; p.openPoints=rp.points; p.acilis=rp.points;
         S.topOpen=Math.max(S.topOpen,rp.points);
         log(`${p.name} ${rp.points} puanla açtı — baraj ${rp.points+1}.`,true);
       }
@@ -1337,8 +1330,7 @@ function botPlay(p){
         S.melds.push({tiles:pr, owner:p.i, pair:true});
         const ids=new Set(pr.map(t=>t.id));
         p.hand=p.hand.filter(t=>!ids.has(t.id));
-        p.pairCount++; 
-        S.pairsMax=Math.max(S.pairsMax, p.pairCount);
+        p.pairCount++;   // sonradan inen çift katlamayı yükseltmez
       }
       if(p.pairCount>=7){ endHand(p.i,`${p.name} 7 çift yaptı.`); return; }
     }
@@ -1543,7 +1535,7 @@ function snapTurn(){
     melds:S.melds.map(m=>({tiles:m.tiles.slice(),owner:m.owner,pair:!!m.pair})),
     hand:me().hand.slice(),
     rack:S.rack?S.rack.map(r=>r.slice()):null,
-    opened:me().opened, openPoints:me().openPoints, openPairs:me().openPairs, barajYok:me().barajYok,
+    opened:me().opened, openPoints:me().openPoints, openPairs:me().openPairs, acilis:me().acilis, barajYok:me().barajYok,
     pairs:me().pairs, pairCount:me().pairCount,
     proc:me().proc, procMap:Object.assign({},me().procMap),
     pendingLay:me().pendingLay, layNow:me().layNow,
@@ -1574,7 +1566,7 @@ function doCollect(){
   S.melds=sn.melds.map(m=>({tiles:m.tiles.slice(),owner:m.owner,pair:m.pair}));
   me().hand=sn.hand.slice();
   if(sn.rack) S.rack=sn.rack.map(r=>r.slice());
-  me().opened=sn.opened; me().openPoints=sn.openPoints; me().openPairs=sn.openPairs; me().barajYok=!!sn.barajYok;
+  me().opened=sn.opened; me().openPoints=sn.openPoints; me().openPairs=sn.openPairs; me().acilis=sn.acilis||0; me().barajYok=!!sn.barajYok;
   me().pairs=sn.pairs; me().pairCount=sn.pairCount;
   me().proc=sn.proc; me().procMap=Object.assign({},sn.procMap);
   me().pendingLay=sn.pendingLay; me().layNow=sn.layNow;
@@ -1716,6 +1708,9 @@ function applyOpen(finish){
   me().barajYok=barajAltinda;
   if(!barajAltinda){
     me().retracted=false;
+    // KATLAMA yalnız AÇIŞ anındaki sayıdır. Sonradan indirilen seriler,
+    // işlenen taşlar ve okey değiş-tokuşu bu sayıyı YÜKSELTMEZ.
+    me().acilis=tot;
     S.topOpen=Math.max(S.topOpen,tot);
   }
   layCheck(me());
@@ -1799,16 +1794,17 @@ function doPut_(){
   S.staging.forEach(g=>{
     S.melds.push({tiles:g.tiles,owner:SELF,pair:!!g.pair});
     clearLay(me(),g.tiles); clearRelay(me(),g.tiles);
-    if(g.pair){ 
-      me().pairCount++; 
-      S.pairsMax=Math.max(S.pairsMax,me().pairCount); 
-    }
+    // Sonradan indirilen çift, çift katlamasını YÜKSELTMEZ — katlama
+    // yalnız açış anında yere konan çift sayısıdır (openPairs).
+    if(g.pair) me().pairCount++;
   });
   if(!me().pairs){
     const ek=S.staging.reduce((a,g)=>a+(g.points||0),0);
     me().openPoints+=ek;
     if(me().barajYok&&me().openPoints>=threshold()){
+      // Baraj altında kalan açış aynı turda tamamlandı: KATLAMA bu sayıdır.
       me().barajYok=false; me().retracted=false;
+      me().acilis=me().openPoints;
       S.topOpen=Math.max(S.topOpen,me().openPoints);
       log(`Barajı geçtin — açışın ${me().openPoints}. Artık işleyebilirsin.`,true);
     }
@@ -1918,10 +1914,8 @@ function doProcess_(){
     const ids=new Set(ts.map(t=>t.id));
     me().hand=me().hand.filter(t=>!ids.has(t.id));
     
-    if(isPair){
-      me().pairCount++;
-      S.pairsMax=Math.max(S.pairsMax, me().pairCount);
-    }
+    // Sonradan indirilen çift katlamayı yükseltmez; yalnız kendi sayacını artırır.
+    if(isPair) me().pairCount++;
     S.selected.clear();
     log(isPair ? `${me().pairCount}. çiftini yere indirdin.` : 'Çiftini masaya indirdin.');
     render();
@@ -2610,15 +2604,35 @@ function showPile(i){
   $('veil').classList.remove('hidden');
 }
 
+/* btn: metin (tek düğme) ya da [{t,cls,fn}] (çok düğme).
+   Çok düğmeli hâli askVeil'den farklı: askVeil "bir kişiye sorulan soru"dur,
+   showVeil ise masadaki HERKESE gösterilen perdedir. Tur sonu ekranı bunu
+   kullanmalı, yoksa ağda perdeyi yalnız bir koltuk görür ve masa kilitlenir. */
 function showVeil(title,html,btn,fn,genis){
   $('veil').classList.toggle('wide',!!genis);
   document.querySelectorAll('.veil .opt').forEach(x=>x.remove());
-  $('vBtn').style.display='';
   $('vTitle').textContent=title;
   $('vLines').innerHTML=html;
+  if(Array.isArray(btn)){
+    $('vBtn').style.display='none';
+    const box=$('vBtn').parentNode;
+    btn.forEach(b=>{
+      const el=document.createElement('button');
+      el.className='opt '+(b.cls||''); el.textContent=b.t; el.style.margin='4px';
+      el.onclick=()=>{
+        document.querySelectorAll('.veil .opt').forEach(x=>x.remove());
+        $('veil').classList.add('hidden'); $('veil').classList.remove('wide');
+        b.fn();
+      };
+      box.appendChild(el);
+    });
+    $('veil').classList.remove('hidden');
+    return;
+  }
+  $('vBtn').style.display='';
   $('vBtn').textContent=btn;
   $('veil').classList.remove('hidden');
-  $('vBtn').onclick=()=>{ $('veil').classList.add('hidden'); fn(); };
+  $('vBtn').onclick=()=>{ $('veil').classList.add('hidden'); $('veil').classList.remove('wide'); fn(); };
 }
 
 $('btnDeck').onclick=doDeck;
@@ -2726,7 +2740,30 @@ function askMode(hands){
   $('veil').classList.remove('hidden');
 }
 
-startGame();
+/* ---------- ağ modu köprüsü ----------
+   server.js ve net.js motorun içine BU nesne üzerinden ulaşır. Motorun
+   üst düzeyindeki const/let'ler (S, SELF, isWild...) global olmadığı için
+   dışarıdan görünmez; buradan açıkça verilmeleri gerekir. Bu blok
+   silinirse sunucu "oda kuramaz" ve çok oyunculu tamamen çalışmaz. */
+const __api = {
+  S,
+  get self(){ return SELF; },
+  setSelf(i){ SELF = i|0; },
+  setNames(arr){ for(let i=0;i<4;i++) if(arr&&arr[i]) NAMES[i]=arr[i]; },
+  /* yardımcılar — net.js kullanıyor */
+  isWild, isLive, tileName, handValue, threshold, needPairs, ciftOkeyVar,
+  validateMeld, validatePair, rackBlocks, okeyCandidates,
+  /* akış */
+  newHand, botTurn, render, endHand,
+  /* hamleler */
+  doDeck, doTake, doUndo, doCollect, doJoin, doProcess, processInto,
+  doDoubleOkey, doPut, doOpen, doDiscard,
+  doOkey(){ if(autoOkey(S.players[SELF])) render(); }
+};
+window.__api = __api;
+
+/* Ağ modunda masayı sunucu kurar; buradaki tek kişilik açılış sorulmaz. */
+if(!window.__NET__) startGame();
 </script>
 </body>
 </html>

@@ -116,8 +116,16 @@ function makeRoom(teams) {
   ctx.notice = () => {};
   ctx.syncTimer = () => {};
   ctx.showVeil = (title, html, btn, fn, genis) => {
-    // Maç sonunda tam puan tablosu gönderiliyor; geniş kart isteniyor.
-    room.pendingNext = { title, html, fn, wide: !!genis, btn: btn || 'Devam' };
+    // Maç/tur sonunda tam puan tablosu gönderiliyor; geniş kart isteniyor.
+    // btn bir dizi olabilir: tur sonu perdesi iki seçenek sunuyor. Bu perde
+    // askVeil DEĞİL — masadaki herkes görür, ilk basan devam ettirir.
+    const cok = Array.isArray(btn);
+    room.pendingNext = {
+      title, html, wide: !!genis,
+      btns: cok ? btn.map(b => ({ t: b.t, cls: b.cls || '' }))
+                : [{ t: btn || 'Devam', cls: '' }],
+      fns:  cok ? btn.map(b => b.fn) : [fn]
+    };
     push(room);
   };
   ctx.askVeil = (title, html, buttons, opts) => {
@@ -272,7 +280,7 @@ function viewFor(room, seat) {
         hand: p.hand.map(hide), count: p.hand.length,
         discards: p.discards,
         opened: p.opened, pairs: p.pairs, pairCount: p.pairCount,
-        openPoints: p.openPoints, openPairs: p.openPairs,
+        openPoints: p.openPoints, openPairs: p.openPairs, acilis: p.acilis,
         procLog: [], procMap: {}, proc: p.proc,
         mustOpen: false, pendingLay: null, mustRelay: null, okeyDebt: null,
         layNow: false, retracted: false, tookToOpen: false, fine: p.fine
@@ -290,7 +298,14 @@ function viewFor(room, seat) {
     // istemciye hiç gitmiyordu; bu yüzden düğme çok oyuncuda hep sönüktü.
     // İçeriğini göndermeye gerek yok, hakkın var mı bilgisi yeterli.
     snap: !!(S.turn === seat && S.snap),
-    next: room.pendingNext || null
+    // Tur bilgisi istemciye gitmezse üstteki "1. Tur" rozeti ve skor
+    // penceresindeki tur geçmişi herkeste boş kalır.
+    currentTour: S.currentTour, turlar: S.turlar,
+    // fns sunucuda kalır; istemciye yalnız düğme etiketleri gider.
+    next: room.pendingNext
+      ? { title: room.pendingNext.title, html: room.pendingNext.html,
+          wide: room.pendingNext.wide, btns: room.pendingNext.btns }
+      : null
   };
 }
 
@@ -318,7 +333,8 @@ function startRoom(room) {
   S.xm = [0, 0, 0, 0];
   S.history = [];
   S.handNo = 1;
-  S.maclar = [];              // yeni masa: oyunlar arası skor sıfırdan
+  S.turlar = [];              // yeni masa: tur geçmişi sıfırdan
+  S.currentTour = 1;
   S.dealer = Math.floor(Math.random() * 4);
   // Oyuncu adları el dağıtılmadan önce yerleşmeli — newHand adları buradan alıyor.
   // Boş koltuklara bot adı verilir; gerçek oyunculara asla bot adı atanmaz.
@@ -787,9 +803,11 @@ const server = http.createServer(async (req, res) => {
     if (!room || !room.pendingNext) return send(res, 400, { err: 'Bekleyen el yok.' });
     const seat = seatOf(room, d.pid);
     if (seat >= 0) room.seats[seat].lastSeen = Date.now();
-    const fn = room.pendingNext.fn;
+    const fns = room.pendingNext.fns || [];
+    const idx = Math.max(0, Math.min(fns.length - 1, parseInt(d.idx, 10) || 0));
+    const fn = fns[idx];
     room.pendingNext = null;
-    try { fn(); } catch (e) {}
+    try { if (fn) fn(); } catch (e) {}
     push(room);
     return send(res, 200, { ok: true });
   }
