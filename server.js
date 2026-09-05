@@ -100,8 +100,15 @@ function makeRoom(teams) {
   room.api = api;
 
   const S = api.S;
-  ctx.log = (m, big) => {
-    room.log.push({ m: String(m), big: !!big, t: Date.now() });
+  // ozel = {seat, genel}: satırı yalnız o koltuk kendi hâliyle görür, geri
+  // kalanlar "genel" metnini görür. Desteden çekilen taşın adı bu yolla gizli
+  // kalıyor — eskiden ortak kayda düşüp herkese görünüyordu.
+  ctx.log = (m, big, ozel) => {
+    room.log.push({
+      m: String(m), big: !!big, t: Date.now(),
+      seat: ozel && ozel.seat != null ? ozel.seat : null,
+      genel: ozel && ozel.genel ? String(ozel.genel) : null
+    });
     if (room.log.length > 200) room.log.shift();
     push(room);
   };
@@ -113,18 +120,40 @@ function makeRoom(teams) {
     room.pendingNext = { title, html, fn, wide: !!genis, btn: btn || 'Devam' };
     push(room);
   };
-  ctx.askVeil = (title, html, buttons) => {
+  ctx.askVeil = (title, html, buttons, opts) => {
     const seat = (api.S.askSeat != null) ? api.S.askSeat : api.self;
     // actor: soruyu doğuran hamleyi yapan koltuk (soruyu CEVAPLAYAN değil).
     // Cevap dönünce motor bu koltukla devam etmeli, yoksa açış yanlış kişiye yazılır.
     // auto: cevap veren koltuk kopup bota devredilirse basılacak güvenli düğme
     // (her iki soruda da altın renkli olan seçenek "durumu büyütmeyen" cevaptır).
-    const auto = buttons.findIndex(b => b.cls === 'gold');
+    const gold = buttons.findIndex(b => b.cls === 'gold');
+    // opts.autoIdx + opts.sure: eş tavsiyesi gibi süreli sorular. Süre dolunca
+    // o düğmeye kendiliğinden basılır ve oyun devam eder.
+    const auto = (opts && opts.autoIdx != null) ? opts.autoIdx
+               : (gold < 0 ? buttons.length - 1 : gold);
+    if (room.askTimer) { clearTimeout(room.askTimer); room.askTimer = null; }
     room.pendingAsk = {
-      seat, actor: api.self, auto: auto < 0 ? buttons.length - 1 : auto,
+      seat, actor: api.self, auto,
+      sure: (opts && opts.sure) || 0,
+      bitis: (opts && opts.sure) ? Date.now() + opts.sure * 1000 : 0,
       title, html, buttons: buttons.map(b => b.t), fns: buttons
     };
     api.S.askSeat = null;
+    if (opts && opts.sure) {
+      room.askTimer = setTimeout(() => {
+        room.askTimer = null;
+        const ask = room.pendingAsk;
+        if (!ask) return;
+        room.pendingAsk = null;
+        room.log.push({ m: `· ${(room.seats[ask.seat]||{}).name || 'Oyuncu'} süresinde cevap vermedi.`, t: Date.now() });
+        const aktor = ask.actor != null ? ask.actor : ask.seat;
+        api.setSelf(aktor);
+        try { ask.fns[ask.auto].fn(); } catch (_) {}
+        if (!room.pendingAsk) stagingGeriVer(api, aktor);
+        api.setSelf(0);
+        push(room);
+      }, opts.sure * 1000 + 500);
+    }
     push(room);
   };
   ctx.rollDice = (cb) => cb(Math.floor(Math.random() * 4));
@@ -140,6 +169,17 @@ function seatOf(room, pid) {
 function yanciOf(room, seat) {
   return (room.watchers || []).find(w => w.yanci === seat) || null;
 }
+// Boş koltukları dolduran botların adları. Gerçek oyuncular kendi adlarını
+// girer; bu adlar yalnızca insan oturmayan koltuklara verilir.
+const BOT_ADLARI = ['Yunus', 'Zeynep', 'Murat', 'Elif'];
+
+function adGecerli(ad) {
+  const t = String(ad || '').trim();
+  if (t.length < 2) return null;
+  if (BOT_ADLARI.some(b => b.toLocaleLowerCase('tr') === t.toLocaleLowerCase('tr'))) return null;
+  return t.slice(0, 12);
+}
+
 function watcherOf(room, pid) {
   return (room.watchers || []).findIndex(w => w && w.pid === pid);
 }
@@ -225,7 +265,10 @@ function viewFor(room, seat) {
         layNow: false, retracted: false, tookToOpen: false, fine: p.fine
       };
     }),
-    log: room.log.slice(-40),
+    log: room.log.slice(-40).map(e => {
+      if (e.seat == null || e.seat === seat) return { m: e.m, big: e.big, t: e.t };
+      return e.genel ? { m: e.genel, big: false, t: e.t } : null;
+    }).filter(Boolean),
     ask: room.pendingAsk && room.pendingAsk.seat === seat
       ? { title: room.pendingAsk.title, html: room.pendingAsk.html, buttons: room.pendingAsk.buttons }
       : null,
@@ -262,7 +305,11 @@ function startRoom(room) {
   S.xm = [0, 0, 0, 0];
   S.history = [];
   S.handNo = 1;
+  S.maclar = [];              // yeni masa: oyunlar arası skor sıfırdan
   S.dealer = Math.floor(Math.random() * 4);
+  // Oyuncu adları el dağıtılmadan önce yerleşmeli — newHand adları buradan alıyor.
+  // Boş koltuklara bot adı verilir; gerçek oyunculara asla bot adı atanmaz.
+  api.setNames(room.seats.map((x, i) => x ? x.name : BOT_ADLARI[i]));
   api.newHand();
   S.players.forEach((p, i) => { p.bot = !room.seats[i]; });
   const now = Date.now();
@@ -288,7 +335,7 @@ const ACTIONS = {
   // son iki taş okeyse ikisini birden atıp bitirmek
   ciftokey: (api) => api.doDoubleOkey(),
   put:     (api, d) => { stage(api, d.groups); api.doPut(); },
-  open:    (api, d) => { stage(api, d.groups); api.doOpen(!!d.finish); },
+  open:    (api, d) => { stage(api, d.groups); api.doOpen(); },
   discard: (api, d) => { api.S.selected = new Set([d.id]); api.doDiscard(false); }
 };
 
@@ -444,9 +491,11 @@ const server = http.createServer(async (req, res) => {
 
   if (p === '/api/create' && req.method === 'POST') {
     const d = await readBody(req);
+    const ad = adGecerli(d.name);
+    if (!ad) return send(res, 400, { err: 'Geçerli bir ad yaz (bot adları kullanılamaz).' });
     const room = makeRoom(!!d.teams);
     const pid = 'p' + (++nextRoom) + Math.random().toString(36).slice(2, 7);
-    room.seats[0] = { pid, name: (d.name || 'Oyuncu').slice(0, 12), lastSeen: Date.now() };
+    room.seats[0] = { pid, name: ad, lastSeen: Date.now() };
     room.owner = pid;
     return send(res, 200, { code: room.code, pid, seat: 0 });
   }
@@ -473,7 +522,8 @@ const server = http.createServer(async (req, res) => {
     const d = await readBody(req);
     const room = rooms.get(String(d.code || '').toUpperCase());
     if (!room) return send(res, 404, { err: 'Oda bulunamadı.' });
-    const ad = (d.name || 'Oyuncu').slice(0, 12);
+    const ad = adGecerli(d.name);
+    if (!ad) return send(res, 400, { err: 'Geçerli bir ad yaz (bot adları kullanılamaz).' });
     const pid = 'p' + (++nextRoom) + Math.random().toString(36).slice(2, 7);
     const rol = String(d.rol || 'oyuncu');
 
@@ -505,7 +555,7 @@ const server = http.createServer(async (req, res) => {
       room.seats[seat] = { pid, name: ad, lastSeen: Date.now() };
       if (room.started) {
         room.api.S.players[seat].bot = false;
-        room.api.setNames(room.seats.map((x, i) => x ? x.name : 'Bot ' + (i + 1)));
+        room.api.setNames(room.seats.map((x, i) => x ? x.name : BOT_ADLARI[i]));
         room.log.push({ m: `· ${ad} boş koltuğa oturdu.`, t: Date.now() });
       }
       push(room);
@@ -556,7 +606,7 @@ const server = http.createServer(async (req, res) => {
     room.seats[hedef].lastSeen = Date.now();
     if (room.started) {
       room.api.S.players[hedef].bot = false;
-      room.api.setNames(room.seats.map((x, i) => x ? x.name : 'Bot ' + (i + 1)));
+      room.api.setNames(room.seats.map((x, i) => x ? x.name : BOT_ADLARI[i]));
       room.log.push({ m: `· ${room.seats[hedef].name} boş koltuğa oturdu.`, t: Date.now() });
     }
     push(room);
@@ -667,7 +717,7 @@ const server = http.createServer(async (req, res) => {
     devretSahiplik(room, d.pid);
     if (room.started) {
       room.api.S.players[seat].bot = true;       // eli bot devralır, oyun durmaz
-      room.api.setNames(room.seats.map((x, i) => x ? x.name : 'Bot ' + (i + 1)));
+      room.api.setNames(room.seats.map((x, i) => x ? x.name : BOT_ADLARI[i]));
       room.log.push({ m: `· ${ad} masadan ayrıldı — koltuk boşaldı, yerine bot bakıyor.`, t: Date.now() });
     }
     push(room);
