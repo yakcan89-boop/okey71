@@ -176,8 +176,21 @@ const BOT_ADLARI = ['Yunus', 'Zeynep', 'Murat', 'Elif'];
 function adGecerli(ad) {
   const t = String(ad || '').trim();
   if (t.length < 2) return null;
-  if (BOT_ADLARI.some(b => b.toLocaleLowerCase('tr') === t.toLocaleLowerCase('tr'))) return null;
   return t.slice(0, 12);
+}
+
+// Boş koltuklara bot adı verirken masadaki insanların adlarıyla çakışma:
+// oyuncu kendine "Murat" dediyse bot başka bir ad alır.
+function botAdlari(room) {
+  const insan = room.seats.filter(Boolean).map(x => x.name.toLocaleLowerCase('tr'));
+  const havuz = BOT_ADLARI.concat(['Kemal', 'Selim', 'Ayla', 'Derya']);
+  const kullanilan = insan.slice();
+  return room.seats.map((x, i) => {
+    if (x) return x.name;
+    let ad = havuz.find(b => kullanilan.indexOf(b.toLocaleLowerCase('tr')) < 0) || ('Bot ' + (i + 1));
+    kullanilan.push(ad.toLocaleLowerCase('tr'));
+    return ad;
+  });
 }
 
 function watcherOf(room, pid) {
@@ -309,7 +322,7 @@ function startRoom(room) {
   S.dealer = Math.floor(Math.random() * 4);
   // Oyuncu adları el dağıtılmadan önce yerleşmeli — newHand adları buradan alıyor.
   // Boş koltuklara bot adı verilir; gerçek oyunculara asla bot adı atanmaz.
-  api.setNames(room.seats.map((x, i) => x ? x.name : BOT_ADLARI[i]));
+  api.setNames(botAdlari(room));
   api.newHand();
   S.players.forEach((p, i) => { p.bot = !room.seats[i]; });
   const now = Date.now();
@@ -492,7 +505,7 @@ const server = http.createServer(async (req, res) => {
   if (p === '/api/create' && req.method === 'POST') {
     const d = await readBody(req);
     const ad = adGecerli(d.name);
-    if (!ad) return send(res, 400, { err: 'Geçerli bir ad yaz (bot adları kullanılamaz).' });
+    if (!ad) return send(res, 400, { err: 'En az 2 harfli bir ad yaz.' });
     const room = makeRoom(!!d.teams);
     const pid = 'p' + (++nextRoom) + Math.random().toString(36).slice(2, 7);
     room.seats[0] = { pid, name: ad, lastSeen: Date.now() };
@@ -523,7 +536,7 @@ const server = http.createServer(async (req, res) => {
     const room = rooms.get(String(d.code || '').toUpperCase());
     if (!room) return send(res, 404, { err: 'Oda bulunamadı.' });
     const ad = adGecerli(d.name);
-    if (!ad) return send(res, 400, { err: 'Geçerli bir ad yaz (bot adları kullanılamaz).' });
+    if (!ad) return send(res, 400, { err: 'En az 2 harfli bir ad yaz.' });
     const pid = 'p' + (++nextRoom) + Math.random().toString(36).slice(2, 7);
     const rol = String(d.rol || 'oyuncu');
 
@@ -555,7 +568,7 @@ const server = http.createServer(async (req, res) => {
       room.seats[seat] = { pid, name: ad, lastSeen: Date.now() };
       if (room.started) {
         room.api.S.players[seat].bot = false;
-        room.api.setNames(room.seats.map((x, i) => x ? x.name : BOT_ADLARI[i]));
+        room.api.setNames(botAdlari(room));
         room.log.push({ m: `· ${ad} boş koltuğa oturdu.`, t: Date.now() });
       }
       push(room);
@@ -606,7 +619,7 @@ const server = http.createServer(async (req, res) => {
     room.seats[hedef].lastSeen = Date.now();
     if (room.started) {
       room.api.S.players[hedef].bot = false;
-      room.api.setNames(room.seats.map((x, i) => x ? x.name : BOT_ADLARI[i]));
+      room.api.setNames(botAdlari(room));
       room.log.push({ m: `· ${room.seats[hedef].name} boş koltuğa oturdu.`, t: Date.now() });
     }
     push(room);
@@ -717,7 +730,7 @@ const server = http.createServer(async (req, res) => {
     devretSahiplik(room, d.pid);
     if (room.started) {
       room.api.S.players[seat].bot = true;       // eli bot devralır, oyun durmaz
-      room.api.setNames(room.seats.map((x, i) => x ? x.name : BOT_ADLARI[i]));
+      room.api.setNames(botAdlari(room));
       room.log.push({ m: `· ${ad} masadan ayrıldı — koltuk boşaldı, yerine bot bakıyor.`, t: Date.now() });
     }
     push(room);
