@@ -1201,7 +1201,7 @@ function botTurn(){
   if(S.over||S.busy) return;
   const p=S.players[S.turn];
   if(!p.bot) return;
-  S.busy=true; p.openedNow=false; p.proc=0; p.procMap={};
+  S.busy=true; p.openedNow=false; p.proc=0; p.procMap={}; p.mustOpen=false;
   p.tookToOpen=false; p.sonAlinan=null;
   if(S.phase==='act'){
     render(); setTimeout(()=>botPlay(p),620); return;
@@ -1259,6 +1259,10 @@ function botDraw(p,next){
   };
   const grabOnly=()=>{
     takeDiscard(p);
+    // İnsanla aynı kural: açmamış oyuncu yerden taş aldıysa ya o taşla açar,
+    // ya da ÇİFT demiş sayılır. Bu satır yoktu; botlar açamayınca çift
+    // sayılmıyor ve el sonunda 202 yerine 101 yazıyorlardı.
+    if(!p.opened&&!p.pairs) p.mustOpen=true;
     p.pendingLay=(prev.opened&&!p.opened)?top.id:null;
     p.sonAlinan=top.id;
     log(`${p.name} yerden ${tileName(top)} aldı.`);
@@ -1447,6 +1451,11 @@ function botPlay(p){
     const t=botDiscard(p);
     if(!t){ S.busy=false; advance(); return; }
     const bitiyor = p.hand.length===1;
+    if(p.mustOpen&&!p.opened&&!bitiyor&&!p.pairs){
+      declarePairs(p);
+      log(`${p.name} aldığı taşla açmadı — çift demiş oldu.`,true);
+    }
+    p.mustOpen=false;
     if(p.tookToOpen&&!p.opened&&!bitiyor){
       p.fine+=71;
       log(`${p.name} aldığı taşla açamadı — 71 ceza.`,true);
