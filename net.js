@@ -147,7 +147,7 @@
   }
 
   // Davet linkiyle gelen önce masaya BAKAR, sonra rolünü seçer:
-  // oyuncu (boş koltuk), seyirci, ya da bir oyuncunun yancısı.
+  // oyuncu (boş koltuk) ya da seyirci.
   async function join() {
     const el = document.getElementById('lbCode');
     const code = ((el && el.value) || '').trim().toUpperCase();
@@ -164,10 +164,10 @@
     rolSec(code, o);
   }
 
-  async function girisYap(code, rol, yanciSeat) {
+  async function girisYap(code, rol) {
     note('Odaya giriliyor…');
     try {
-      const d = await post('/api/join', { code, name: nameVal(), rol, yanciSeat });
+      const d = await post('/api/join', { code, name: nameVal(), rol });
       if (d.err) { note('Hata: ' + d.err); return; }
       CODE = d.code; PID = d.pid; SEAT = d.seat;
       localStorage.setItem('okey_code', CODE);
@@ -193,14 +193,10 @@
           '<span style="flex:1;text-align:left;opacity:.6"><i>Boş koltuk ' + (i + 1) + '</i></span>' +
           '<button data-rol="oyuncu" style="' + altin + '">Oyuncu ol</button></div>';
       }
-      const y = o.yancilar[i], kapali = o.yanciKapali[i];
-      let sag;
-      if (y) sag = '<span style="font-size:11px;opacity:.6">yancısı: ' + y + '</span>';
-      else if (kapali) sag = '<span style="font-size:11px;opacity:.4">yancı kapalı</span>';
-      else sag = '<button data-yanci="' + i + '" style="' + sade + '">Yancısı ol</button>';
       return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:5px;' +
         'border-radius:8px;background:rgba(255,255,255,.12)">' +
-        '<b style="flex:1;text-align:left">' + s.name + '</b>' + sag + '</div>';
+        '<b style="flex:1;text-align:left">' + s.name + '</b>' +
+        '<span style="font-size:11px;opacity:.5">oturuyor</span></div>';
     };
 
     lobbyHTML(
@@ -222,16 +218,13 @@
         (o.watcherCount ? ' <small style="opacity:.6">(' + o.watcherCount + ' kişi izliyor)</small>' : '') +
         '</span><button data-rol="seyirci" style="' + sade + '">İzle</button></div>' +
       '<div style="font-size:11px;opacity:.55;line-height:1.5;margin-top:8px">' +
-        'Yancı, yanına oturduğu oyuncunun <b>elini görür</b> ve ona akıl verir; hamleyi oyuncu yapar. ' +
+        'Seyirci yere açılan perleri, atılan taşları ve skorları görür; kimsenin elini görmez. ' +
         (bosSayi ? '' : 'Masa dolu — boş koltuk açılınca seyirciyken oturabilirsin.') +
       '</div>'
     );
 
     lob.querySelectorAll('[data-rol]').forEach(b => {
       b.onclick = () => { if (adTamam()) girisYap(code, b.dataset.rol); };
-    });
-    lob.querySelectorAll('[data-yanci]').forEach(b => {
-      b.onclick = () => { if (adTamam()) girisYap(code, 'yanci', +b.dataset.yanci); };
     });
   }
 
@@ -353,7 +346,9 @@
     S.center = new Array(v.center).fill(0).map((_, i) => ({ id: -100 - i }));
     S.melds = v.melds;
     S.players = v.players.map(p => Object.assign({ bot: p.i !== v.seat }, p));
-    api.setNames(v.players.map((p, i) => (i === v.seat ? 'Sen' : p.name)));
+    // Seyirci hiçbir koltuğun sahibi değil; 0 numara yalnız çizim çapası.
+    S.seyirci = !!v.seyirci;
+    api.setNames(v.players.map((p, i) => ((!v.seyirci && i === v.seat) ? 'Sen' : p.name)));
     // S.snap sunucuda tutuluyor; buraya sadece "geri toplama hakkın var mı"
     // bilgisi geliyor. Yerel bir yer tutucu koyuyoruz ki düğme açılsın.
     S.busy = false; S.staging = []; S.snap = v.snap ? { net: true } : null;
@@ -461,7 +456,8 @@
 
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   let VER = -1, RUNNING = false, STOP = false;
-  let READONLY = false;      // yancı modunda hiçbir hamle gönderilmez
+  let READONLY = false;      // seyircide hiçbir hamle gönderilmez
+  let SEYIRCI = false;
 
   /* ---------- bağlantı rozeti ---------- */
   function badge(msg) {
@@ -511,17 +507,26 @@
     // Koltuğu olmayan seyirci: masayı bekleme panelinden izler, boş koltuk
     // açılınca oturur. Oyun ekranı çizilmez, eli olmayan biri için anlamsız.
     READONLY = !!v.readOnly;
-    const kt = document.querySelector('.controls');
-    if (kt) { kt.style.pointerEvents = READONLY ? 'none' : ''; kt.style.opacity = READONLY ? '.4' : ''; }
-    if (!READONLY && v.yanci == null) { /* normal oyuncu */ }
+    SEYIRCI = !!v.seyirci;
+    // Seyirci hamle yapamaz: kumanda, takoz ve eş çubuğu kapatılır.
+    const gizle = (sec, kapali) => {
+      const e = document.querySelector(sec);
+      if (!e) return;
+      e.style.pointerEvents = kapali ? 'none' : '';
+      e.style.opacity = kapali ? '.35' : '';
+      e.style.display = (kapali && sec === '.rack') ? 'none' : '';
+    };
+    gizle('.controls', READONLY);
+    gizle('.rack', SEYIRCI);
+    if (SEYIRCI) { const mb = document.getElementById('mateBar'); if (mb) mb.classList.add('hidden'); }
+
     if (v.watcher) { lob.style.display = ''; showWatcher(v); return; }
     if (!v.started) { lob.style.display = ''; showWaiting(v); return; }
     if (!STARTED) { STARTED = true; bind(); }
     lob.style.display = 'none';
     apply(v);
     checkLeaveButton(true);
-    yanciCubugu(v);        // yancı çubuğu ya da oyuncunun yancı ayarları
-    if (v.oneri) oneriGoster(v.oneri);
+    seyirciCubugu(v);
     if (v.ask) showAsk(v.ask);
     else if (v.next) showNext(v.next);
   }
@@ -532,21 +537,11 @@
     const satir = i => {
       const s = v.seats[i];
       const bos = !s;
-      const yanci = (v.yancilar || [])[i];
-      const kapali = (v.yanciKapali || [])[i];
       const kucuk = 'font-size:11px;font-weight:700;padding:5px 9px;border-radius:6px;cursor:pointer;';
-      let sag = '';
-      if (bos) {
-        sag = '<button data-otur="' + i + '" style="' + kucuk + 'border:1px solid #f5c33b;' +
-              'background:linear-gradient(180deg,#f5c33b,#a9761a);color:#3a2503">Otur</button>';
-      } else if (yanci) {
-        sag = '<span style="font-size:11px;opacity:.7">yancı: ' + yanci + '</span>';
-      } else if (kapali) {
-        sag = '<span style="font-size:11px;opacity:.45">yancı kapalı</span>';
-      } else {
-        sag = '<button data-yanci="' + i + '" style="' + kucuk + 'border:1px solid rgba(255,255,255,.3);' +
-              'background:rgba(255,255,255,.14);color:#eaf6ff">Yancısı ol</button>';
-      }
+      const sag = bos
+        ? '<button data-otur="' + i + '" style="' + kucuk + 'border:1px solid #f5c33b;' +
+          'background:linear-gradient(180deg,#f5c33b,#a9761a);color:#3a2503">Otur</button>'
+        : '';
       return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:5px;' +
         'border-radius:8px;background:rgba(255,255,255,' + (bos ? '.06' : '.12') + ')">' +
         '<b style="flex:1;text-align:left">' + (bos ? 'Boş koltuk' : s.name) + '</b>' +
@@ -557,10 +552,9 @@
       '<div style="font-size:12px;letter-spacing:.16em;text-transform:uppercase;opacity:.6">oda kodu</div>' +
       '<div style="font-size:38px;font-weight:900;letter-spacing:.12em;margin:2px 0 8px">' + CODE + '</div>' +
       '<div style="font-size:13px;opacity:.85;margin-bottom:10px">' +
-        'Masa dolu — <b>izliyorsun</b>. Masayı ve atılan taşları görürsün, elleri görmezsin.' +
-        '<br><b>Yancısı ol</b> dersen o oyuncunun elini de görürsün ve ona akıl verebilirsin.' +
+        '<b>İzliyorsun.</b> Yere açılan perleri, atılan taşları ve skorları görürsün; elleri görmezsin.' +
         (v.started ? ' El ' + v.handNo + '/' + v.hands + ' oynanıyor, sıra <b>' + sira + '</b>.' : '') +
-        '<br>Biri masadan ayrılınca <b>Otur</b> düğmesi açılır.' +
+        '<br>Boş koltuk varsa <b>Otur</b> düğmesiyle masaya geçebilirsin.' +
       '</div>' +
       [0, 1, 2, 3].map(satir).join('') +
       '<button id="lbAyril" style="width:100%;margin-top:10px;font-size:13px;font-weight:700;padding:9px;' +
@@ -573,26 +567,19 @@
         if (r && r.err) alert(r.err);
       };
     });
-    lob.querySelectorAll('[data-yanci]').forEach(b => {
-      b.onclick = async () => {
-        const r = await post('/api/yanci', { code: CODE, pid: PID, seat: +b.dataset.yanci });
-        if (r && r.err) alert(r.err);
-      };
-    });
     const a = document.getElementById('lbAyril');
     if (a) a.onclick = () => ayril(false);
   }
 
-  /* ---------- yancı çubuğu ----------
-     Yancıysan: oyuncunun ELİNİ GÖRMEZSİN — masayı, yere inen perleri ve
-     atılan taşları izler, hazır tavsiyeleri yollarsın. Oyuncuysan: yancının
-     adını görür, kovabilir (kovulan geri dönemez) ya da yancı yerini
-     her zaman açıp kapatabilirsin. */
+  /* ---------- seyirci çubuğu ----------
+     Seyirci masayı izler: yere açılan perler, atılan taşlar, skorlar. Hiçbir
+     el görünmez, hiçbir hamle yollanmaz. Boş koltuk varsa buradan oturabilir.
+     (İleride sohbet eklenirse mesaj kutusu da bu çubuğa girer.) */
   function cubuk() {
-    let c = document.getElementById('yanciBar');
+    let c = document.getElementById('seyirciBar');
     if (!c) {
       c = document.createElement('div');
-      c.id = 'yanciBar';
+      c.id = 'seyirciBar';
       c.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:160;padding:7px 8px;' +
         'background:rgba(10,32,52,.96);border-top:1px solid rgba(255,255,255,.18);' +
         'display:flex;flex-wrap:wrap;gap:5px;align-items:center;justify-content:center;' +
@@ -603,92 +590,44 @@
     return c;
   }
   function cubukSil() {
-    const c = document.getElementById('yanciBar');
+    const c = document.getElementById('seyirciBar');
     if (c) c.remove();
     document.body.style.paddingBottom = '';
   }
 
-  // Yancı eli görmediği için "şu taşı at" diyemez; tavsiyeler masaya bakarak
-  // verilebilecek genel yönlendirmelerle sınırlı.
-  const ONERILER = [
-    ['Desteden çek', 'desteden çek'],
-    ['Yerden al',    'yerden al'],
-    ['Yerden alma',  'yerden alma'],
-    ['Yere indir',   'yere indir, aç'],
-    ['Bekle',        'bekle, tutma'],
-    ['Çifte git',    'çifte git'],
-    ['Okeyi al',     'yerdeki okeyi al'],
-    ['Dikkat et',    'dikkat, işlek taş var']
-  ];
-
-  function yanciCubugu(v) {
-    // --- yancı görünümü ---
-    if (v.yanci != null) {
-      const c = cubuk();
-      const dgm = (metin, fn, renk) => {
-        const b = document.createElement('button');
-        b.textContent = metin;
-        b.style.cssText = 'font:700 12px/1.1 inherit;padding:7px 9px;border-radius:6px;cursor:pointer;' +
-          'border:1px solid rgba(255,255,255,.28);background:' + (renk || 'rgba(255,255,255,.14)') +
-          ';color:#eaf6ff';
-        b.onclick = fn;
-        return b;
-      };
-      c.innerHTML = '';
-      const et = document.createElement('span');
-      et.style.cssText = 'width:100%;text-align:center;opacity:.8;font-weight:400;margin-bottom:2px';
-      et.innerHTML = '<b>' + v.yanciAdi + '</b> adlı oyuncunun yancısısın — elini görmezsin, ' +
-                     'masayı izler ve tavsiye yollarsın.';
-      c.appendChild(et);
-      ONERILER.forEach(o => {
-        c.appendChild(dgm(o[0], async () => {
-          const metin = o[1];
-          const r = await post('/api/oneri', { code: CODE, pid: PID, metin });
-          if (r && r.err) flash(r.err); else flash('Tavsiye yollandı: ' + metin);
-        }));
-      });
-      c.appendChild(dgm('Yancılıktan çık', async () => {
-        await post('/api/yanci', { code: CODE, pid: PID, seat: -1 });
-      }, 'rgba(224,87,79,.55)'));
-      return;
-    }
-
-    // --- oturan oyuncunun yancı ayarları ---
-    if (v.seat == null || v.seat < 0) { cubukSil(); return; }
-    const benimYanci = (v.yancilar || [])[v.seat];
-    const kapali = (v.yanciKapali || [])[v.seat];
+  function seyirciCubugu(v) {
+    if (!v.seyirci) { cubukSil(); return; }
     const c = cubuk();
     c.innerHTML = '';
     const et = document.createElement('span');
-    et.style.cssText = 'opacity:.85;font-weight:400';
-    et.innerHTML = benimYanci
-      ? 'Yancın: <b>' + benimYanci + '</b>'
-      : (kapali ? 'Yancı yerin <b>kapalı</b>' : 'Yancı yerin <b>açık</b> — boş');
+    et.style.cssText = 'width:100%;text-align:center;opacity:.8;font-weight:400;margin-bottom:2px';
+    et.textContent = 'Seyircisin — masayı izliyorsun, elleri görmezsin.';
     c.appendChild(et);
+
     const dgm = (metin, fn, renk) => {
       const b = document.createElement('button');
       b.textContent = metin;
-      b.style.cssText = 'font:700 12px/1.1 inherit;padding:6px 10px;border-radius:6px;cursor:pointer;' +
-        'border:1px solid rgba(255,255,255,.28);background:' + (renk || 'rgba(255,255,255,.14)') + ';color:#eaf6ff';
+      b.style.cssText = 'font:700 12px/1.1 inherit;padding:7px 10px;border-radius:6px;cursor:pointer;' +
+        'border:1px solid rgba(255,255,255,.28);background:' + (renk || 'rgba(255,255,255,.14)') +
+        ';color:#eaf6ff';
       b.onclick = fn;
       c.appendChild(b);
     };
-    if (benimYanci) {
-      dgm('Kov', async () => {
-        if (confirm(benimYanci + ' yancılıktan çıkarılsın mı?\n\nGeri dönemez.'))
-          await post('/api/yancikov', { code: CODE, pid: PID });
-      }, 'rgba(224,87,79,.55)');
-    }
-    dgm(kapali ? 'Yancı yerini aç' : 'Yancı yerini kapat', async () => {
-      await post('/api/yancikapat', { code: CODE, pid: PID, kapali: !kapali });
-    });
-  }
 
-  let sonOneri = 0;
-  function oneriGoster(o) {
-    if (!o || o.t === sonOneri) return;
-    sonOneri = o.t;
-    flash('Yancın ' + o.kim + ': “' + o.metin + '”');
+    (v.freeSeats || []).forEach(i => {
+      dgm((i + 1) + '. koltuğa otur', async () => {
+        const r = await post('/api/seat', { code: CODE, pid: PID, seat: i });
+        if (r && r.err) flash(r.err);
+      }, 'linear-gradient(180deg,#f5c33b,#a9761a)');
+    });
+    if (!(v.freeSeats || []).length) {
+      const bos = document.createElement('span');
+      bos.style.cssText = 'font-weight:400;opacity:.55';
+      bos.textContent = 'Masa dolu — koltuk boşalınca burada düğme çıkar.';
+      c.appendChild(bos);
+    }
+    dgm('Skorlar', () => { const b = document.getElementById('btnScore'); if (b) b.onclick(); });
+    dgm('Masadan ayrıl', () => ayril(false), 'rgba(224,87,79,.55)');
   }
 
   // ---- masadan ayrılma ----

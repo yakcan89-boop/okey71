@@ -54,14 +54,9 @@ function makeRoom(teams) {
     code, teams: !!teams,
     hands: 8,                          // kaç el oynanacak (3-8), oda sahibi seçer
     seats: [null, null, null, null],   // {pid, name, lastSeen} ya da null (bot)
-    // Koltuğu olmayanlar. yanci=null ise sade seyirci (sadece masayı görür),
-    // yanci=koltuk ise o oyuncunun yancısı (ONUN elini de görür, akıl verir).
-    watchers: [],                      // {pid, name, lastSeen, yanci}
-    yanciKapali: [false, false, false, false],  // oyuncu yancı yerini kapatabilir
-    // Kovulan yancıların pid'leri — koltuk başına. Kovulan kişi o oyuncunun
-    // yancısı olarak GERİ DÖNEMEZ; sade seyirci olarak kalabilir.
-    yanciKovulan: [[], [], [], []],
-    oneri: [null, null, null, null],   // yancıdan oyuncuya son tavsiye
+    // Koltuğu olmayanlar: seyirciler. Masayı, yere inen perleri, atılan
+    // taşları ve skorları görürler; kimsenin elini görmezler.
+    watchers: [],                      // {pid, name, lastSeen}
     owner: null,                       // oda sahibinin pid'i (koltuk değişse de sabit)
     version: 0,
     waiters: [],                       // bekleyen uzun-yoklama istekleri
@@ -177,9 +172,6 @@ function seatOf(room, pid) {
   return room.seats.findIndex(s => s && s.pid === pid);
 }
 
-function yanciOf(room, seat) {
-  return (room.watchers || []).find(w => w.yanci === seat) || null;
-}
 // Boş koltukları dolduran botların adları. Gerçek oyuncular kendi adlarını
 // girer; bu adlar yalnızca insan oturmayan koltuklara verilir.
 const BOT_ADLARI = ['Yunus', 'Zeynep', 'Murat', 'Elif'];
@@ -225,41 +217,38 @@ function closeRoom(room, sebep) {
   }
 }
 
-// Kim ne görür: oturan kendi elini görür. Yancı oyuncunun ELİNİ GÖRMEZ —
-// yalnız masayı, yere inen perleri ve genel kaydı görür. Sade seyirci de öyle.
+// Kim ne görür: oturan kendi elini görür. Seyirci hiçbir el görmez —
+// masayı, yere inen perleri, atılan taşları ve skorları görür.
 function bakisFor(room, pid) {
   const seat = seatOf(room, pid);
   if (seat >= 0) return viewFor(room, seat);
   const wi = watcherOf(room, pid);
   if (wi < 0) return null;
-  const w = room.watchers[wi];
-  if (w.yanci != null && room.seats[w.yanci]) {
-    // Ekranın çizilebilmesi için koltuk numarası gerekiyor, ama o koltuğun
-    // eli ve ona özel bilgiler burada körleştiriliyor.
-    const v = viewFor(room, w.yanci);
-    const p = v.players[w.yanci];
-    p.hand = p.hand.map(t => ({ id: t.id, h: 1 }));
-    p.procLog = []; p.procMap = {};
-    p.mustOpen = false; p.pendingLay = null; p.mustRelay = null;
-    p.okeyDebt = null; p.layNow = false; p.retracted = false; p.tookToOpen = false;
-    // Oyuncuya özel satırlar (çektiği taşın adı gibi) genel hâliyle görünsün.
-    v.log = room.log.slice(-40).map(e => {
-      if (e.seat == null) return { m: e.m, big: e.big, t: e.t };
-      return e.genel ? { m: e.genel, big: false, t: e.t } : null;
-    }).filter(Boolean);
-    v.lastDraw = null;                       // çekilen taşın adı sızmasın
-    v.yanci = w.yanci;                       // kimin yancısıyım
-    v.yanciAdi = room.seats[w.yanci].name;
-    v.readOnly = true;                       // hamle yapamaz
-    v.owner = false;
-    v.ask = null;                            // soruyu oyuncu cevaplar
-    v.oneri = null;                          // tavsiyeyi yollayan kendisi
-    v.snap = false;
-    v.watcher = false;
+  room.watchers[wi].lastSeen = Date.now();
+
+  // Oyun başlamadıysa seyirci bekleme panelini görür.
+  if (!room.started) {
+    const v = viewFor(room, -1);
+    v.seyirci = true;
     return v;
   }
-  const v = viewFor(room, -1);
-  v.yanci = null;
+  // Oyun sürerken masa ÇİZİLİR. Ekranın çizilebilmesi için bir koltuk
+  // gerekiyor; 0 numara çapa olarak kullanılıp bütün eller boşaltılıyor.
+  const v = viewFor(room, 0);
+  v.players.forEach(p => { p.hand = []; });
+  v.log = room.log.slice(-40).map(e => {
+    if (e.seat == null) return { m: e.m, big: e.big, t: e.t };
+    return e.genel ? { m: e.genel, big: false, t: e.t } : null;
+  }).filter(Boolean);
+  v.seat = 0;
+  v.seyirci = true;
+  v.watcher = false;
+  v.readOnly = true;
+  v.owner = false;
+  v.ask = null;
+  v.next = null;
+  v.snap = false;
+  v.lastDraw = null;
   return v;
 }
 
@@ -276,9 +265,6 @@ function viewFor(room, seat) {
     watcher: seat < 0,
     freeSeats: room.seats.map((x, i) => (x ? -1 : i)).filter(i => i >= 0),
     watcherCount: (room.watchers || []).length,
-    yanciKapali: room.yanciKapali.slice(),
-    yancilar: [0, 1, 2, 3].map(i => { const y = yanciOf(room, i); return y ? y.name : null; }),
-    oneri: seat >= 0 ? room.oneri[seat] : null,
     owner: !!(seat >= 0 && room.seats[seat] && room.seats[seat].pid === room.owner),
     seats: room.seats.map((s, i) => ({ name: s ? s.name : 'Bot ' + (i + 1), bot: !s })),
     handNo: S.handNo, dealer: S.dealer, turn: S.turn, phase: S.phase,
@@ -547,7 +533,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Odaya GİRMEDEN durumuna bakmak: davet linkini açan kişi önce koltukları
-  // ve kimin yancı kabul ettiğini görsün, rolünü ona göre seçsin.
+  // kaç kişinin izlediğini görsün, oyuncu mu seyirci mi olacağına karar versin.
   if (p === '/api/oda' && req.method === 'GET') {
     const kod = String(u.searchParams.get('code') || '').toUpperCase();
     const room = rooms.get(kod);
@@ -558,8 +544,6 @@ const server = http.createServer(async (req, res) => {
       teams: room.teams,
       hands: room.hands,
       seats: room.seats.map(x => x ? { name: x.name } : null),
-      yanciKapali: room.yanciKapali.slice(),
-      yancilar: [0, 1, 2, 3].map(i => { const y = yanciOf(room, i); return y ? y.name : null; }),
       watcherCount: room.watchers.length
     });
   }
@@ -575,26 +559,10 @@ const server = http.createServer(async (req, res) => {
 
     // Seyirci olarak katılmak isteyen: boş koltuk olsa da oturmaz
     if (rol === 'seyirci') {
-      room.watchers.push({ pid, name: ad, lastSeen: Date.now(), yanci: null });
+      room.watchers.push({ pid, name: ad, lastSeen: Date.now() });
       room.log.push({ m: `· ${ad} masayı izlemeye başladı.`, t: Date.now() });
       push(room);
       return send(res, 200, { code: room.code, pid, seat: -1, watcher: true, rol });
-    }
-
-    // Yancı olarak katılmak isteyen: kimin yancısı olacağını seçmiş olmalı
-    if (rol === 'yanci') {
-      const hedef = parseInt(d.yanciSeat, 10);
-      if (!(hedef >= 0 && hedef < 4)) return send(res, 400, { err: 'Kimin yancısı olacağını seç.' });
-      if (!room.seats[hedef]) return send(res, 400, { err: 'O koltukta insan yok.' });
-      if (room.yanciKapali[hedef]) return send(res, 400, { err: 'O oyuncu yancı istemiyor.' });
-      if (yanciOf(room, hedef)) return send(res, 400, { err: 'O oyuncunun yancısı zaten var.' });
-      // Kovulan aynı adla dönmeye çalışabilir; ad da yasak listesinde tutuluyor.
-      if (room.yanciKovulan[hedef].indexOf(ad.toLocaleLowerCase('tr')) >= 0)
-        return send(res, 400, { err: 'O oyuncu seni yancılıktan çıkardı.' });
-      room.watchers.push({ pid, name: ad, lastSeen: Date.now(), yanci: hedef });
-      room.log.push({ m: `· ${ad}, ${room.seats[hedef].name} adlı oyuncunun yancısı oldu.`, t: Date.now() });
-      push(room);
-      return send(res, 200, { code: room.code, pid, seat: -1, watcher: false, yanci: hedef, rol });
     }
 
     const seat = room.seats.findIndex(s => !s);
@@ -610,7 +578,7 @@ const server = http.createServer(async (req, res) => {
       push(room);
       return send(res, 200, { code: room.code, pid, seat, watcher: false });
     }
-    room.watchers.push({ pid, name: ad, lastSeen: Date.now(), yanci: null });
+    room.watchers.push({ pid, name: ad, lastSeen: Date.now() });
     push(room);
     return send(res, 200, { code: room.code, pid, seat: -1, watcher: true });
   }
@@ -650,7 +618,6 @@ const server = http.createServer(async (req, res) => {
       room.seats[cur] = null;
     } else {
       room.seats[hedef] = room.watchers.splice(wi, 1)[0];
-      delete room.seats[hedef].yanci;          // artık oyuncu, yancı değil
     }
     room.seats[hedef].lastSeen = Date.now();
     if (room.started) {
@@ -672,85 +639,6 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, { ok: true });
   }
 
-  // Seyirci bir oyuncunun yancısı olur — ya da yancılığı bırakır (seat: -1)
-  if (p === '/api/yanci' && req.method === 'POST') {
-    const d = await readBody(req);
-    const room = rooms.get(String(d.code || '').toUpperCase());
-    if (!room) return send(res, 404, { err: 'Oda yok.' });
-    const wi = watcherOf(room, d.pid);
-    if (wi < 0) return send(res, 403, { err: 'Masada oturuyorsun, yancı olamazsın.' });
-    const w = room.watchers[wi];
-    const hedef = parseInt(d.seat, 10);
-    if (!(hedef >= 0 && hedef < 4)) {                 // yancılıktan çık
-      if (w.yanci != null) room.log.push({ m: `· ${w.name} yancılıktan çıktı.`, t: Date.now() });
-      w.yanci = null; push(room);
-      return send(res, 200, { ok: true, yanci: null });
-    }
-    if (!room.seats[hedef]) return send(res, 400, { err: 'O koltukta insan yok.' });
-    if (room.yanciKapali[hedef]) return send(res, 400, { err: 'O oyuncu yancı istemiyor.' });
-    if (room.yanciKovulan[hedef].indexOf(w.pid) >= 0 ||
-        room.yanciKovulan[hedef].indexOf(w.name.toLocaleLowerCase('tr')) >= 0)
-      return send(res, 400, { err: 'O oyuncu seni yancılıktan çıkardı — geri dönemezsin.' });
-    const varOlan = yanciOf(room, hedef);
-    if (varOlan && varOlan !== w) return send(res, 400, { err: 'O oyuncunun yancısı zaten var.' });
-    w.yanci = hedef;
-    room.log.push({ m: `· ${w.name}, ${room.seats[hedef].name} adlı oyuncunun yancısı oldu.`, t: Date.now() });
-    push(room);
-    return send(res, 200, { ok: true, yanci: hedef });
-  }
-
-  // Oyuncu kendi yancı yerini açar / kapatır
-  if (p === '/api/yancikapat' && req.method === 'POST') {
-    const d = await readBody(req);
-    const room = rooms.get(String(d.code || '').toUpperCase());
-    if (!room) return send(res, 404, { err: 'Oda yok.' });
-    const seat = seatOf(room, d.pid);
-    if (seat < 0) return send(res, 403, { err: 'Masada değilsin.' });
-    room.yanciKapali[seat] = !!d.kapali;
-    if (d.kapali) {
-      const y = yanciOf(room, seat);
-      if (y) y.yanci = null;
-      room.oneri[seat] = null;
-    }
-    room.log.push({ m: `· ${room.seats[seat].name} yancı yerini ${d.kapali ? 'kapattı' : 'açtı'}.`, t: Date.now() });
-    push(room);
-    return send(res, 200, { ok: true, kapali: room.yanciKapali[seat] });
-  }
-
-  // Oyuncu yancısını kovar
-  if (p === '/api/yancikov' && req.method === 'POST') {
-    const d = await readBody(req);
-    const room = rooms.get(String(d.code || '').toUpperCase());
-    if (!room) return send(res, 404, { err: 'Oda yok.' });
-    const seat = seatOf(room, d.pid);
-    if (seat < 0) return send(res, 403, { err: 'Masada değilsin.' });
-    const y = yanciOf(room, seat);
-    if (!y) return send(res, 400, { err: 'Yancın yok.' });
-    y.yanci = null;
-    room.oneri[seat] = null;
-    // Kovulan geri gelemesin: hem kimliği hem adı yasak listesine yazılıyor.
-    room.yanciKovulan[seat].push(y.pid, y.name.toLocaleLowerCase('tr'));
-    room.log.push({ m: `· ${room.seats[seat].name}, yancısı ${y.name} adlı kişiyi kaldırdı — geri dönemez.`, t: Date.now() });
-    push(room);
-    return send(res, 200, { ok: true });
-  }
-
-  // Yancıdan oyuncusuna tavsiye — sadece o oyuncu görür, masaya yayılmaz
-  if (p === '/api/oneri' && req.method === 'POST') {
-    const d = await readBody(req);
-    const room = rooms.get(String(d.code || '').toUpperCase());
-    if (!room) return send(res, 404, { err: 'Oda yok.' });
-    const wi = watcherOf(room, d.pid);
-    if (wi < 0) return send(res, 403, { err: 'Yancı değilsin.' });
-    const w = room.watchers[wi];
-    if (w.yanci == null || !room.seats[w.yanci]) return send(res, 400, { err: 'Oyuncun masada yok.' });
-    const metin = String(d.metin || '').slice(0, 60).trim();
-    if (!metin) return send(res, 400, { err: 'Boş tavsiye.' });
-    room.oneri[w.yanci] = { kim: w.name, metin, t: Date.now() };
-    push(room);
-    return send(res, 200, { ok: true });
-  }
-
   if (p === '/api/leave' && req.method === 'POST') {
     const d = await readBody(req);
     const room = rooms.get(String(d.code || '').toUpperCase());
@@ -764,10 +652,6 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true, left: true });
     }
     const ad = room.seats[seat].name;
-    room.watchers.forEach(w => { if (w.yanci === seat) w.yanci = null; });
-    room.yanciKapali[seat] = false;
-    room.yanciKovulan[seat] = [];        // koltuk boşaldı, yasaklar da o kişiyle gitti
-    room.oneri[seat] = null;
     room.seats[seat] = null;                     // koltuk BOŞALIR, başkası oturabilir
     devretSahiplik(room, d.pid);
     if (room.started) {
@@ -828,7 +712,8 @@ const server = http.createServer(async (req, res) => {
     const room = rooms.get(String(d.code || '').toUpperCase());
     if (!room || !room.pendingNext) return send(res, 400, { err: 'Bekleyen el yok.' });
     const seat = seatOf(room, d.pid);
-    if (seat >= 0) room.seats[seat].lastSeen = Date.now();
+    if (seat < 0) return send(res, 403, { err: 'Bunu masadakiler yapar.' });
+    room.seats[seat].lastSeen = Date.now();
     const fns = room.pendingNext.fns || [];
     const idx = Math.max(0, Math.min(fns.length - 1, parseInt(d.idx, 10) || 0));
     const fn = fns[idx];

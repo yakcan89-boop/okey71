@@ -122,7 +122,20 @@ yine 6 çift yeter.
 
 ### 5.4 Çift açan oyuncunun işleme hakkı
 
-Çiftle açmış bir oyuncu, bir turda serilere **en fazla 1 taş** işleyebilir.
+Çiftle açmış bir oyuncunun bir turda **tek bir işleme hakkı** vardır.
+
+Bu hakkı harcayanlar:
+
+- Serilerden birine bir taş işlemek
+- **Yerdeki okeyi kendi taşıyla almak (okey takası)**
+
+Yani okeyi aldıysan o tur seriye taş işleyemezsin; taş işlediysen okeyi alamazsın.
+Sıra sana yeniden gelince hak sıfırlanır.
+
+Hakka **tabi olmayan** hamleler:
+
+- Kendi çiftini yere indirmek (istediğin kadar)
+- Yeni bir per/seri yere koymak
 
 ### 5.5 Seriyle açan oyuncunun çift indirmesi
 
@@ -159,8 +172,10 @@ Eşli oyunda soru önce **atanın eşine** danışılır (10 saniye): "Çift des
 ### 6.1 Yerdeki okeyi alma
 
 Yerdeki bir perde okey joker olarak duruyorsa ve okeyin temsil ettiği taş sende
-varsa, taşını koyup **okeyi alabilirsin**. Bu bir işleme hakkı harcamaz ve
-katlamayı değiştirmez.
+varsa, taşını koyup **okeyi alabilirsin**. Katlamayı değiştirmez.
+
+**Okey takası bir işleme sayılır.** Çift açan oyuncu için bu, o turdaki tek
+hakkını harcar (bkz. §5.4).
 
 Aldığın okey el sonunda elinde kalırsa **71 ceza** yazarsın (eşin bitirdiyse yazmazsın).
 
@@ -263,26 +278,28 @@ Hiç kimse açmadan el biterse puan yazılmaz, **aynı el yeniden dağıtılır*
 
 ---
 
-## 12. Masa dışı roller (çok oyunculu)
+## 12. Seyirci (çok oyunculu)
 
-| Rol | Ne görür | Ne yapar |
+Masada oturmayan herkes **seyircidir**. Ayrı bir "yancı" rolü yoktur.
+
+| | Oyuncu | Seyirci |
 |---|---|---|
-| **Oyuncu** | Kendi eli + masa | Oynar |
-| **Yancı** | Yalnız masa — oyuncunun elini **görmez** | Hamle yapamaz, kısa tavsiye yazar |
-| **Seyirci** | Yalnız masa | Boş koltuk açılırsa oturabilir |
+| Kendi eli | görür | — |
+| Başkasının eli | görmez | görmez |
+| Yere açılan perler | görür | **görür** |
+| Atılan taşlar | görür | **görür** |
+| Gösterge, okey, taş sayıları | görür | **görür** |
+| Skorlar ve tur geçmişi | görür | **görür** |
+| Hamle yapmak | yapar | yapamaz |
 
-- **Yancı, yanına oturduğu oyuncunun elini görmez.** Yere açılan perleri, atılan
-  taşları, taş sayılarını ve masadaki genel kaydı görür; oyuncunun çektiği taşın
-  adı ona "desteden çekti" diye görünür.
-- Tavsiyeler masaya bakarak verilebilecek genel yönlendirmelerdir
-  ("yerden alma", "yere indir", "okeyi al" gibi).
-- Bir oyuncunun aynı anda en fazla bir yancısı olur.
-- Yancının tavsiyesi yalnız kendi oyuncusuna görünür, masaya yayılmaz.
-- Oyuncu **yancı yerini her an açıp kapatabilir**. Kapatınca varsa mevcut yancısı
-  düşer ve o koltuğa kimse yancı olamaz.
-- Oyuncu yancısını **kovabilir. Kovulan kişi o oyuncuya geri dönemez** — ne aynı
-  kimlikle ne de aynı adla. Masada sade seyirci olarak kalabilir ve **başka bir
-  oyuncunun** yancısı olabilir. Koltuk boşalırsa o koltuğun yasak listesi silinir.
+- Seyirci **hiç kimsenin elini görmez** — kendi koltuğu olmadığı için de görecek
+  bir eli yoktur. Oyuncuya özel kayıt satırları ona genel hâliyle görünür:
+  "Tukce desteden çekti" der, çekilen taşın adını yazmaz.
+- Boş koltuk varsa seyirci **oturabilir**; oyun başlamış olsa da olur, o koltuğa
+  bakan botun elini devralır. Oturduğu anda kendi elini görmeye başlar.
+- Masa doluyken katılmak isteyen kendiliğinden seyirci olur.
+- Seyirci masadan istediği an ayrılabilir.
+- İleride sohbet eklenirse seyirci de mesaj yazabilecek.
 
 ### 12.1 Kopma
 

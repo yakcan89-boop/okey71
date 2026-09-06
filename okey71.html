@@ -410,7 +410,7 @@ const S={
   players:[],turn:0,phase:'draw',
   melds:[],staging:[],selected:new Set(),
   totals:[0,0,0,0],xm:[0,0,0,0],history:[],handNo:1,hands:DEFAULT_HANDS,
-  turlar:[], currentTour:1,
+  turlar:[], currentTour:1, seyirci:false,
   doubled:false,pairsMax:0,topOpen:0,okeyFinish:false,ciftOkeyFinish:false,lastDraw:null,teams:false,timerSec:0,rack:null,dealer:0,snap:null,mateMsg:null,over:false,busy:false
 };
 
@@ -1819,9 +1819,10 @@ function doPut_(){
 function autoOkey(p){
   let n=0;
   while(n<2){
+    if(p.pairs&&p.proc>=1) break;          // çift açan turda tek işleme hakkı
     const c=okeyCandidates(p)[0];
     if(!c||!swapOkey(p,c)) break;
-    n++;
+    n++; p.proc++;                          // takas da hak harcar
     log(p.i===SELF ? `Okey senin oldu — yerine ${tileName(c.mine)} girdi.`
                    : `${p.name} işleyerek okeyi aldı.`, true);
   }
@@ -1848,7 +1849,7 @@ function canDropOn(t,mi){
   const m=S.melds[mi];
   if(!m||!t) return false;
   if(!myTurn()||S.phase!=='act'||!me().opened||S.staging.length) return false;
-  if(meldOkeySlot(m,t)) return true;
+  if(meldOkeySlot(m,t)) return !(me().pairs&&me().proc>=1);
   if(m.pair) return false;
   if(me().pairs&&me().proc>=1) return false;
   if(me().hand.length<=1) return false;
@@ -1870,7 +1871,11 @@ function processInto_(id,mi){
 
   const w=meldOkeySlot(m,t);
   if(w){
+    // Okey takası da bir işleme sayılır — çift açan turda tek hakkını burada
+    // harcayabilir, sonra seriye taş işleyemez.
+    if(me().pairs&&me().proc>=1){ log('· Çift açan turda 1 işleme hakkı var — hakkın bitti.',true); return; }
     if(!swapOkey(me(),{mi,wild:w,mine:t})){ log('· Bu okey değiştirilemedi.'); return; }
+    me().proc++;
     S.selected.clear();
     log(`Okey senin oldu — yerine ${tileName(t)} girdi.`,true);
     render(); return;
@@ -1923,9 +1928,9 @@ function doProcess_(){
     return;
   }
 
-  if(isPair && me().proc>=1){ 
-    log('· Çift açan oyuncu serilere turda en fazla 1 taş işleyebilir.'); 
-    return; 
+  if(isPair && me().proc>=1){
+    log('· Çift açan turda 1 işleme hakkı var (okey takası dâhil) — hakkın bitti.');
+    return;
   }
 
   let n=0, blocked=0;
@@ -1942,6 +1947,7 @@ function doProcess_(){
         const w=meldOkeySlot(S.melds[mi],t);
         if(!w) continue;
         if(swapOkey(me(),{mi,wild:w,mine:t})){
+          me().proc++;                      // okey takası da işleme hakkı harcar
           log(`Okey senin oldu — yerine ${tileName(t)} girdi.`,true);
           pending.splice(k,1); k--; n++; progress=true; takas=true;
         }
@@ -2314,7 +2320,7 @@ function render(){
 
   const cp=$('pCift');
   const decl=S.players.filter(x=>x.pairs);
-  if(decl.length){ cp.className='pill hot'; cp.textContent='ÇİFT: '+decl.map(x=>x.i===0?'Sen':x.name).join(', '); }
+  if(decl.length){ cp.className='pill hot'; cp.textContent='ÇİFT: '+decl.map(x=>(!S.seyirci&&x.i===SELF)?'Sen':x.name).join(', '); }
   else { cp.className='pill off'; cp.textContent='Çift yok'; }
 
   const zones={};
@@ -2332,7 +2338,7 @@ function render(){
   S.players.forEach((_,i)=>{
     if(!zones[i]) return;
     const l=document.createElement('div'); l.className='zlabel';
-    l.textContent = (i===SELF) ? 'Sen' : NAMES[i];
+    l.textContent = (!S.seyirci&&i===SELF) ? 'Sen' : NAMES[i];
     zones[i].insertBefore(l, zones[i].firstChild);
   });
 
@@ -2545,7 +2551,7 @@ function askVeil(title,html,buttons,opts){
 function scoreTableHTML(){
   const takim = S.teams;
   const cols = takim ? [[0,2],[1,3]] : [[0],[1],[2],[3]];
-  const baslik = g => g.map(i=>(i===SELF?'Sen':NAMES[i])).join(' + ');
+  const baslik = g => g.map(i=>((!S.seyirci&&i===SELF)?'Sen':NAMES[i])).join(' + ');
   const xTop   = g => g.reduce((a,i)=>a+S.xm[i],0);
   const topTop = g => g.reduce((a,i)=>a+S.totals[i],0);
   const netTop = g => g.reduce((a,i)=>a+netOf(i),0);
