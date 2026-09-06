@@ -230,6 +230,15 @@ body{
 .status.mine{animation:siraCak 1s ease-in-out 3;border:1px solid rgba(245,195,59,.55);
   color:#ffe9a8;font-weight:900;font-size:15px}
 .status{font-size:12px;font-weight:700;color:var(--gold);margin-bottom:7px;min-height:16px}
+.esemri{display:flex;align-items:center;gap:7px;margin-bottom:7px;padding:7px 10px;border-radius:9px;
+  font-size:12.5px;font-weight:700;line-height:1.35;
+  background:linear-gradient(180deg,rgba(245,195,59,.22),rgba(245,195,59,.10));
+  border:1px solid rgba(245,195,59,.5);color:#ffe6a6;
+  animation:emirCak 1.1s ease-in-out 3}
+.esemri.hidden{display:none}
+.esemri .eok{font-size:16px;line-height:1}
+.esemri b{color:#fff}
+@keyframes emirCak{0%,100%{box-shadow:0 0 0 0 rgba(245,195,59,0)}50%{box-shadow:0 0 0 4px rgba(245,195,59,.22)}}
 .status.wait{color:rgba(234,246,255,.6);font-weight:400}
 .controls{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-bottom:8px}
 .controls button{min-height:38px;padding:8px 6px;white-space:normal;line-height:1.15;overflow-wrap:anywhere}
@@ -355,6 +364,7 @@ button.red{background:linear-gradient(180deg,#e0574f,#a83028);border-color:#f09a
     <div class="groove" id="rack2" data-row="1"></div>
   </div>
 
+  <div class="esemri hidden" id="esEmri"></div>
   <div class="status" id="status"></div>
 
   <div class="mate hidden" id="mateBar">
@@ -411,7 +421,7 @@ const S={
   melds:[],staging:[],selected:new Set(),
   totals:[0,0,0,0],xm:[0,0,0,0],history:[],handNo:1,hands:DEFAULT_HANDS,
   turlar:[], currentTour:1, seyirci:false,
-  doubled:false,pairsMax:0,topOpen:0,okeyFinish:false,ciftOkeyFinish:false,lastDraw:null,teams:false,timerSec:0,rack:null,dealer:0,snap:null,mateMsg:null,over:false,busy:false
+  doubled:false,pairsMax:0,topOpen:0,okeyFinish:false,ciftOkeyFinish:false,lastDraw:null,teams:false,timerSec:0,rack:null,dealer:0,snap:null,emir:[null,null,null,null],over:false,busy:false
 };
 
 const totalHands=()=>S.hands||DEFAULT_HANDS;
@@ -427,6 +437,22 @@ const threshold=()=>Math.max(71,S.doubled?101:0,S.topOpen+1);
 const needPairs=()=>Math.min(7,Math.max(5,S.pairsMax+1));
 const tileName=t=>t.fake?'sahte okey':`${CN[t.c]} ${t.n}`;
 const mateOf=i=>(i+2)%4;
+
+/* ---------- el sonu çarpanları ----------
+   Masanızda başka türlü oynanıyorsa YALNIZ bu sayıları değiştirin;
+   hesabın geri kalanı buradan besleniyor.
+
+   eldenBitis: hiç kimse açmamışken, aynı turda açıp o turda biten oyuncu.
+   Yedi çifti bir anda indirip bitmek de, bütün perlerini bir anda indirip
+   son taşını atmak da buna girer — ikisi de "elden bitme"dir.
+   Bu çarpan ÇİFT BİTİŞ çarpanıyla ÇARPIŞIR, biri diğerini yutmaz. */
+const KAT = {
+  ciftBitis:   2,   // çiftle bitirme
+  eldenBitis:  4,   // kimse açmadan elden bitirme
+  okeyAtis:    2,   // okey atarak bitirme
+  ciftOkey:    4,   // çift okey atarak bitirme
+  ciftAcamadi: 2    // çift deyip açamayanın kendi cezası
+};
 const netOf=i=>S.totals[i]-S.xm[i]*101;
 
 function addSide(m,t){
@@ -466,7 +492,7 @@ function buildDeck(){
 function newHand(){
   S.deck=buildDeck(); S.center=[];
   S.melds=[];S.staging=[];S.selected.clear();S.rack=null;
-  S.over=false;S.busy=false;S.doubled=false;S.pairsMax=0;S.topOpen=0;S.okeyFinish=false;S.ciftOkeyFinish=false;S.lastDraw=null;S.mateMsg=null;S.snap=null;
+  S.over=false;S.busy=false;S.doubled=false;S.pairsMax=0;S.topOpen=0;S.okeyFinish=false;S.ciftOkeyFinish=false;S.lastDraw=null;S.emir=[null,null,null,null];S.snap=null;
   S.players=[0,1,2,3].map(newPlayer);
   let g=S.deck.pop();
   while(g.fake){ S.deck.unshift(g); g=S.deck.pop(); }
@@ -902,10 +928,13 @@ function endHand(winner,note){
   let mult=1, why=[];
   if(w){
     const othersOpened=S.players.some(x=>x.i!==winner&&x.opened);
-    if(w.pairs){ mult*=2; why.push('çiftle bitti ×2'); }
-    else if(w.openedNow&&!othersOpened){ mult*=2; why.push('kimse açmadan elden bitti ×2'); }
-    if(S.ciftOkeyFinish){ mult*=4; why.push('ÇİFT OKEY attı ×4'); }
-    else if(S.okeyFinish){ mult*=2; why.push('okey attı ×2'); }
+    // ÇİFTLE BİTİŞ ile ELDEN BİTİŞ ayrı şeylerdir ve birlikte uygulanır.
+    // Eskiden "else if" ile birbirini yutuyorlardı: 7 çifti bir anda indirip
+    // biten oyuncu elden bitme çarpanını hiç alamıyordu.
+    if(w.pairs){ mult*=KAT.ciftBitis; why.push(`çiftle bitti ×${KAT.ciftBitis}`); }
+    if(w.openedNow&&!othersOpened){ mult*=KAT.eldenBitis; why.push(`kimse açmadan elden bitti ×${KAT.eldenBitis}`); }
+    if(S.ciftOkeyFinish){ mult*=KAT.ciftOkey; why.push(`ÇİFT OKEY attı ×${KAT.ciftOkey}`); }
+    else if(S.okeyFinish){ mult*=KAT.okeyAtis; why.push(`okey attı ×${KAT.okeyAtis}`); }
   }
   // X (101 düşümü) açış anındaki sayıya bakar — sonradan indirilenler sayılmaz.
   const topNormal = Math.max(0, ...S.players.filter(p=>p.opened&&!p.pairs).map(p=>p.acilis||p.openPoints));
@@ -923,11 +952,11 @@ function endHand(winner,note){
     if(p.i===winner){ pts=0; how='bitirdi'; }
     else if(sameTeam){ pts=0; how='eşi bitirdi'; }
     else if(p.opened){
-      pts=handValue(p)*(p.pairs?2:1)*mult;
-      how=p.pairs?`elde ${handValue(p)} ×2`:`elde ${handValue(p)}`;
+      pts=handValue(p)*(p.pairs?KAT.ciftAcamadi:1)*mult;
+      how=p.pairs?`elde ${handValue(p)} ×${KAT.ciftAcamadi}`:`elde ${handValue(p)}`;
     }else{
-      pts=101*(p.pairs?2:1)*mult;
-      how=p.pairs?'çift açamadı 101 ×2':'açamadı 101';
+      pts=101*(p.pairs?KAT.ciftAcamadi:1)*mult;
+      how=p.pairs?`çift açamadı 101 ×${KAT.ciftAcamadi}`:'açamadı 101';
     }
     if(mult>1&&p.i!==winner) how+=` ×${mult}`;
     let bonus=0;
@@ -1129,7 +1158,7 @@ function esTavsiyesiAl(discarder, taker, tile, planTxt, sonra){
   if(!S.teams) return sonra(null);
   const es=S.players[mateOf(discarder.i)];
   if(!es||es.bot){
-    return sonra(S.mateMsg==='actirma'&&discarder.i===2 ? 'cift' : null);
+    return sonra(S.emir[discarder.i]==='actirma' ? 'cift' : null);
   }
   S.askSeat=es.i;
   askVeilAs(taker.i,'Eşine soruluyor',
@@ -1179,10 +1208,44 @@ function botTurn(){
   botDraw(p,()=>{ render(); setTimeout(()=>botPlay(p),620); });
 }
 
+/* ---------- eş emirleri ----------
+   S.emir[i] = i numaralı oyuncuya EŞİ tarafından verilen emir.
+   Koltuk başına tutulur; böylece iki takım da, hem botlar hem insanlar,
+   aynı düzeneği kullanır. */
+const EMIRLER={
+  topla:   {ad:'TOPLA',        ok:'⬆', kime:'yerden taş TOPLAMANIZI', neden:''},
+  cek:     {ad:'ÇEK',          ok:'⬇', kime:'DESTEDEN ÇEKMENİZİ',      neden:''},
+  tasla:   {ad:'TAŞLA',        ok:'✦', kime:'TAŞLAMANIZI',             neden:'eli açıyor'},
+  cift:    {ad:'ÇİFTE GİT',    ok:'❖', kime:'ÇİFTE GİTMENİZİ',         neden:'eli iyi'},
+  actirma: {ad:'AÇTIRMA',      ok:'✋', kime:'karşıyı AÇTIRMAMANIZI',   neden:''},
+  serbest: {ad:'SERBEST',      ok:'○', kime:'SERBEST OYNAMANIZI',      neden:''}
+};
+
+/* Emri eşine yolla. Hem tek kişilik hem ağ modunda buradan geçer. */
+function setEmir(m){
+  if(!S.teams) return false;
+  const es=mateOf(SELF);
+  const yeni=(m==='serbest'||S.emir[es]===m)?null:m;
+  S.emir[es]=yeni;
+  const e=EMIRLER[m];
+  if(yeni&&e) log(`${NAMES[SELF]} eşine: “${e.ad}” dedi.`,true);
+  else log(`${NAMES[SELF]} eşini serbest bıraktı.`);
+  render();
+  return true;
+}
+
+/* Bot eşine emir verir — insan eşin ekranında bant olarak çıkar. */
+function botEmirVer(p,m,soz){
+  const es=mateOf(p.i);
+  if(!S.teams||S.emir[es]===m) return;
+  S.emir[es]=m;
+  log(`${p.name}: “${soz}”`,true);
+}
+
 const isMate=p=>S.teams&&p.i===2;
 function botDraw(p,next){
   const prev=S.players[prevOf(p.i)];
-  const order=isMate(p)?S.mateMsg:null;
+  const order=S.teams?S.emir[p.i]:null;
   const top=prev.discards[prev.discards.length-1];
   const fromDeck=()=>{
     const t=drawPile();
@@ -1200,16 +1263,17 @@ function botDraw(p,next){
     log(`${p.name} yerden ${tileName(top)} aldı.`);
   };
   const grab=()=>{ grabOnly(); next(); };
+  // "Çifte git" MUTLAK bir emirdir: bot eli neye benzerse benzesin çifte gider.
+  // Bunu çekmeden önce yapar ki bundan sonraki bütün kararlar çift oyununa göre olsun.
+  if(order==='cift'&&!p.opened&&!p.pairs){
+    declarePairs(p);
+    log(`${p.name} eşinin emrine uydu — çifte gitti.`,true);
+  }
   if(!top||top.dead) return fromDeck();
+  const alabilir = !(prev.pairs&&!p.pairs);     // çift oyuncusunun taşını ancak çift alır
   if(order==='cek') return fromDeck();
-  if(order==='topla'&&!p.opened&&!(prev.pairs&&!p.pairs)){
-    if(!p.pairs&&!prev.opened&&pairCount(p.hand.concat([top]))>pairCount(p.hand)) declarePairs(p);
-    return grab();
-  }
-  if(order==='cift'&&!p.opened&&!p.pairs&&!prev.pairs&&
-     pairCount(p.hand.concat([top]))>pairCount(p.hand)){
-    declarePairs(p); return grab();
-  }
+  // Çift dedikten sonra "topla" denince atılan taşı alır, desteye gitmez.
+  if(order==='topla'&&alabilir&&(!p.opened||p.pairs)) return grab();
   if(prev.pairs&&!p.pairs) return fromDeck();
 
   if(p.opened){
@@ -1264,11 +1328,12 @@ function botDraw(p,next){
 
 function botPlay(p){
   if(S.over) return;
-  if(isMate(p)&&!p.opened&&!p.sentMsg){
+  // Takımdaki her bot (hangi koltukta olursa olsun) eşine bir kez emir yollar.
+  if(S.teams&&!p.opened&&!p.sentMsg&&S.players[mateOf(p.i)]&&!S.players[mateOf(p.i)].opened){
     const pc=pairCount(p.hand), pt=pack(p.hand,'points').points;
-    if(pc>=5){ log(`Murat: “${pc} çiftim var, sen topla.”`,true); p.sentMsg=1; }
-    else if(pt>=threshold()){ log('Murat: “Elim açar, sen taşla.”',true); p.sentMsg=1; }
-    else if(pc>=4){ log('Murat: “Çifte gidiyorum, sen serbest oyna.”',true); p.sentMsg=1; }
+    if(pc>=5){ botEmirVer(p,'cift',`${pc} çiftim var — sen de çifte git.`); p.sentMsg=1; }
+    else if(pt>=threshold()){ botEmirVer(p,'tasla','Elim açar, sen taşla.'); p.sentMsg=1; }
+    else if(pc>=4){ botEmirVer(p,'topla','Çifte gidiyorum, sen topla.'); p.sentMsg=1; }
   }
   {
     if(p.pairs&&!p.opened){
@@ -1407,15 +1472,23 @@ function elZayif(p){
   const c=pack(p.hand,'points');
   return c.points<threshold() && pairCount(p.hand)<=2;
 }
-function taslaAt(p){
+function taslaAt(p,bozabilir){
   const hedef=S.players[nextOf(p.i)];
+  // İŞLEK TAŞ ASLA ATILMAZ — 71 ceza yazar ve taş ölür.
   let f=p.hand.filter(t=>!isWild(t)&&!isLive(t));
   if(!f.length) return null;
   const es=p.hand.map(eff);
+  // Elde eşi olan taş: "taşla" emrinde çifti bozmak serbest, hatta tercih edilir.
+  const ciftEsi=t=>{
+    const e=eff(t);
+    return p.hand.filter(o=>o.id!==t.id&&!isWild(o)&&eff(o).n===e.n&&eff(o).c===e.c).length;
+  };
   const puan=t=>{
     const e=eff(t); let s=0;
+    // Zaten çıkmış taş: karşıya yaramaz, en güvenlisi
     if(hedef.discards.some(d=>{const x=eff(d);return x.n===e.n&&x.c===e.c;})) s-=9;
     else if(hedef.discards.some(d=>eff(d).n===e.n)) s-=4;
+    if(bozabilir&&ciftEsi(t)) s-=6;
     if(hedef.pairs) s+=3;
     if(hedef.opened) s+=2;
     s+=val(e.n)*0.5;
@@ -1445,9 +1518,10 @@ function botDiscard(p){
   if(p.hand.length===1) return p.hand[0];
   const yasak = p.hand.length>1 ? p.sonAlinan : null;
   const secilebilir = t => !yasak || t.id!==yasak;
-  const emir = isMate(p)&&S.mateMsg==='tasla'&&elZayif(p);
+  // "Taşla" emri koşulsuzdur: eli zayıf olmasa da eşinin dediğini yapar.
+  const emir = S.teams && S.emir[p.i]==='tasla';
   if(emir||takimBlokla(p)){
-    const t=taslaAt(p);
+    const t=taslaAt(p,emir);
     if(t&&secilebilir(t)) return t;
   }
   const cov = p.pairs ? null : pack(p.hand,'cover');
@@ -1786,7 +1860,11 @@ function doOpen(){
 function doPut(){
   if(!myTurn()||S.phase!=='act'||!me().opened) return;
   if(!S.staging.length&&!stageFromRack(false)){
-    if(rackBlocks().pairs.length && !me().pairs && !tableHasPairs())
+    // Çift açan seri indiremez. Takozda seri duruyorsa oyuncu bunu denemiştir;
+    // "grup yok" demek yanıltıcı olur, sebebi söylensin.
+    if(me().pairs && rackBlocks().melds.length)
+      log('· Çift dedin — seri indiremezsin. Ya yerdeki perlere taş işlersin, ya çift indirirsin.',true);
+    else if(rackBlocks().pairs.length && !me().pairs && !tableHasPairs())
       log('· Yerde çift açan yok — çiftini ancak biri çift açtıysa indirebilirsin.',true);
     else
       log('· Takozda geçerli bir grup yok.');
@@ -1982,6 +2060,10 @@ function doProcess_(){
 
   if(ts.length===2 && validatePair(ts)){ ciftIndir([ts]); return; }
 
+  if(isPair && ts.length>=3 && validateMeld(ts)){
+    log('· Çift dedin — seri indiremezsin. Tek taş seçip işleyebilir ya da çift indirebilirsin.',true);
+    return;
+  }
   if(isPair && me().proc>=1){
     log('· Çift açan turda 1 işleme hakkı var (okey takası dâhil) — hakkın bitti.');
     return;
@@ -2488,9 +2570,23 @@ function render(){
   $('btnTake').textContent=(me().opened||me().pairs)?'Yerden al':'Yerden al = ÇİFT';
 
   $('mateBar').classList.toggle('hidden',!S.teams);
+  const yolladigim = S.teams ? S.emir[mateOf(SELF)] : null;
   document.querySelectorAll('.mbtn').forEach(b=>{
-    b.classList.toggle('on', S.mateMsg===b.dataset.m || (!S.mateMsg&&b.dataset.m==='serbest'));
+    b.classList.toggle('on', yolladigim===b.dataset.m || (!yolladigim&&b.dataset.m==='serbest'));
   });
+
+  // EŞİNDEN GELEN emir — kendi bölümünde durur, sıra sende olmasa da görünür.
+  const eb=$('esEmri');
+  const gelen = (S.teams && !S.over) ? S.emir[SELF] : null;
+  const ge = gelen && EMIRLER[gelen];
+  if(ge && gelen!=='serbest'){
+    const esAdi = NAMES[mateOf(SELF)] || 'Eşiniz';
+    eb.innerHTML = '<span class="eok">'+ge.ok+'</span><span>'+esAdi+
+      (ge.neden?(' '+ge.neden+','):'')+' sizden <b>'+ge.kime+'</b> istiyor.</span>';
+    eb.classList.remove('hidden');
+  } else {
+    eb.innerHTML=''; eb.classList.add('hidden');
+  }
 
   const s=$('status');
   const benimSira = !S.over && S.turn===SELF;
@@ -2707,11 +2803,7 @@ $('btnOpen').onclick=()=>doOpen();
 $('btnPut').onclick=doPut;
 $('btnCollect').onclick=doCollect;
 document.querySelectorAll('.mbtn').forEach(b=>{
-  b.onclick=()=>{
-    const m=b.dataset.m;
-    S.mateMsg = (m==='serbest'||S.mateMsg===m) ? null : m;
-    render();
-  };
+  b.onclick=()=>setEmir(b.dataset.m);
 });
 $('btnProcess').onclick=doProcess;
 $('btnDiscard').onclick=()=>{
@@ -2818,6 +2910,7 @@ const __api = {
   /* hamleler */
   doDeck, doTake, doUndo, doCollect, doJoin, doProcess, processInto,
   doDoubleOkey, doPut, doOpen, doDiscard, ciftIndir, ciftIndirIds, tableHasPairs,
+  setEmir, mateOf, EMIRLER, KAT,
   doOkey(){ if(autoOkey(S.players[SELF])) render(); }
 };
 window.__api = __api;

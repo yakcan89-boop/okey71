@@ -342,6 +342,7 @@
     S.okey = v.okey; S.gosterge = v.gosterge;
     S.totals = v.totals; S.xm = v.xm; S.history = v.history;
     S.currentTour = v.currentTour || 1; S.turlar = v.turlar || [];
+    S.emir = v.emir || [null, null, null, null];
     S.deck = new Array(v.deck).fill(0);
     S.center = new Array(v.center).fill(0).map((_, i) => ({ id: -100 - i }));
     S.melds = v.melds;
@@ -813,6 +814,16 @@
     on('btnUndo',    () => act('undo'));
     on('btnCollect', () => act('collect'));
     on('btnOkey',    () => act('okey'));
+    // Eş emirleri: motor bunları yerel S'e yazıyordu, sunucuya hiç gitmiyordu.
+    // Çok oyunculuda eşin ekranına ulaşması için hamle olarak yollanmalı.
+    document.querySelectorAll('.mbtn').forEach(mb => {
+      mb.onclick = () => {
+        if (READONLY) { flash('Seyircisin — masayı izliyorsun.'); return; }
+        if (!api.S.teams) { flash('Emirler yalnız eşli oyunda geçerli.'); return; }
+        act('emir', { m: mb.dataset.m });
+      };
+    });
+
     on('btnProcess', () => {
       const ids = selectedIds();
       if (ids.length) { act('process', { ids }); return; }

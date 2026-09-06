@@ -304,6 +304,8 @@ function viewFor(room, seat) {
     // Tur bilgisi istemciye gitmezse üstteki "1. Tur" rozeti ve skor
     // penceresindeki tur geçmişi herkeste boş kalır.
     currentTour: S.currentTour, turlar: S.turlar,
+    // Eş emirleri koltuk başına: [0,1,2,3]. Herkes kendi bandını görür.
+    emir: S.emir ? S.emir.slice() : [null, null, null, null],
     // fns sunucuda kalır; istemciye yalnız düğme etiketleri gider.
     next: room.pendingNext
       ? { title: room.pendingNext.title, html: room.pendingNext.html,
@@ -369,6 +371,9 @@ const ACTIONS = {
   // Takozdaki çiftleri yere indirme. Takoz düzeni yalnız istemcide olduğu
   // için grupları o hesaplar, buraya taş id'si olarak gelir.
   ciftindir: (api, d) => api.ciftIndirIds(d.groups),
+  // Eşine emir yollama (Topla / Çek / Taşla / Çifte git / Açtırma / Serbest).
+  // Sıra beklemez: eş, kendi sırası olmasa da eşini yönlendirebilir.
+  emir:    (api, d) => api.setEmir(d.m),
   put:     (api, d) => { stage(api, d.groups); api.doPut(); },
   open:    (api, d) => { stage(api, d.groups); api.doOpen(); },
   discard: (api, d) => { api.S.selected = new Set([d.id]); api.doDiscard(false); }
@@ -408,13 +413,28 @@ function stage(api, groups) {
   }
 }
 
+// Sıra beklemeden yapılabilen hamleler.
+const SIRASIZ = { emir: 1 };
+
 function doAction(room, seat, type, data) {
   const api = room.api;
   const S = api.S;
   if (S.over) return { ok: false, err: 'El bitti, yeni eli bekle.' };
-  if (S.turn !== seat) return { ok: false, err: 'Sıra sende değil.' };
   const fn = ACTIONS[type];
   if (!fn) return { ok: false, err: 'Bilinmeyen hamle.' };
+
+  // Eşine emir vermek sıra beklemez — sıradaki eşine tam o an akıl vermeli.
+  if (SIRASIZ[type]) {
+    api.setSelf(seat);
+    let sonuc = { ok: true };
+    try { fn(api, data || {}); }
+    catch (e) { sonuc = { ok: false, err: 'Hata: ' + e.message }; }
+    api.setSelf(0);
+    push(room);
+    return sonuc;
+  }
+
+  if (S.turn !== seat) return { ok: false, err: 'Sıra sende değil.' };
 
   S.busy = false;
   const before = { hand: S.players[seat].hand.length, turn: S.turn, phase: S.phase,
