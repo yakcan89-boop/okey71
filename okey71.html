@@ -421,7 +421,7 @@ const S={
   melds:[],staging:[],selected:new Set(),
   totals:[0,0,0,0],xm:[0,0,0,0],history:[],handNo:1,hands:DEFAULT_HANDS,
   turlar:[], currentTour:1, seyirci:false,
-  doubled:false,pairsMax:0,topOpen:0,okeyFinish:false,ciftOkeyFinish:false,lastDraw:null,teams:false,timerSec:0,rack:null,dealer:0,snap:null,emir:[null,null,null,null],over:false,busy:false
+  doubled:false,pairsMax:0,topOpen:0,okeyFinish:false,ciftOkeyFinish:false,lastDraw:null,teams:false,timerSec:0,rack:null,dealer:0,snap:null,emir:[null,null,null,null],bitirenTakoz:null,over:false,busy:false
 };
 
 const totalHands=()=>S.hands||DEFAULT_HANDS;
@@ -492,7 +492,7 @@ function buildDeck(){
 function newHand(){
   S.deck=buildDeck(); S.center=[];
   S.melds=[];S.staging=[];S.selected.clear();S.rack=null;
-  S.over=false;S.busy=false;S.doubled=false;S.pairsMax=0;S.topOpen=0;S.okeyFinish=false;S.ciftOkeyFinish=false;S.lastDraw=null;S.emir=[null,null,null,null];S.snap=null;
+  S.over=false;S.busy=false;S.doubled=false;S.pairsMax=0;S.topOpen=0;S.okeyFinish=false;S.ciftOkeyFinish=false;S.lastDraw=null;S.emir=[null,null,null,null];S.snap=null;S.bitirenTakoz=null;
   S.players=[0,1,2,3].map(newPlayer);
   let g=S.deck.pop();
   while(g.fake){ S.deck.unshift(g); g=S.deck.pop(); }
@@ -914,7 +914,12 @@ function autoSort(p){
 
 /* ================= AKIŞ & SKORLAMA ================= */
 const handValue=p=>p.hand.reduce((a,t)=>a+((isWild(t)||t.fake)?val(S.okey.n):val(t.n)),0);
-const isLive=t=>S.melds.some(m=>!m.pair&&(canAddTable(m,t)||!!meldOkeySlot(m,t)));
+/* İşlek taş: yerdeki bir pere eklenebilen YA DA yerdeki bir okeyin yerine
+   geçebilen taş. Okey takası ÇİFT perlerde de yapılabilir (canDropOn buna
+   izin veriyor), o yüzden okey slotu kontrolünde çiftler dışlanmaz.
+   Eskiden dışlanıyordu: yerde okey+mavi 12 çifti varken atılan mavi 12
+   işlek sayılmıyor ve 71 ceza yazılmıyordu. */
+const isLive=t=>S.melds.some(m=>(!m.pair&&canAddTable(m,t))||!!meldOkeySlot(m,t));
 
 function endHand(winner,note){
   if(S.over) return;
@@ -980,25 +985,21 @@ function endHand(winner,note){
      Yavaş yavaş açan birinin taşlarını zaten tur tur görüyoruz, ama ELDEN
      bitende her şey tek anda inip el kapanıyor; kimse ne indiğini göremiyor.
      Bu yüzden bitirenin yere koyduğu perler el sonu perdesinde gösteriliyor. */
-  const bitirenPerleri = winner==null ? [] : S.melds.filter(m=>m.owner===winner);
-  let takozKutusu='';
-  if(bitirenPerleri.length){
+  /* Bitirenin taşları TAKOZDA gösterilir, skor penceresinde değil.
+     Herkesin takozu el sonunda bitirenin perlerini gösterir; skor penceresi
+     yalnız puan yazar. Elden bitişte bu tek görme şansıdır. */
+  if(winner!=null){
     const eldenBitti = S.players[winner].openedNow &&
                        !S.players.some(x=>x.i!==winner&&x.opened);
-    const satirlar = bitirenPerleri.map(m=>{
-      const puan = m.pair ? '' : ` <small style="opacity:.55">${(validateMeld(m.tiles)||{}).points||''}</small>`;
-      const etiket = m.pair ? '<small style="opacity:.55">çift</small> ' : '';
-      return `<div style="padding:3px 0">${etiket}<b>${tilesText(m.tiles)}</b>${puan}</div>`;
-    }).join('');
-    takozKutusu =
-      `<div style="margin:10px 0;padding:9px 10px;border-radius:9px;` +
-      `background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18)">` +
-      `<div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.6;margin-bottom:5px">` +
-      `${NAMES[winner]} bu taşlarla bitirdi${eldenBitti?' — elden':''}</div>` +
-      satirlar + `</div>`;
-  }
+    S.bitirenTakoz = {
+      seat: winner,
+      elden: eldenBitti,
+      gruplar: S.melds.filter(m=>m.owner===winner)
+                      .map(m=>({tiles:m.tiles.slice(), pair:!!m.pair}))
+    };
+  } else S.bitirenTakoz=null;
 
-  const body=`<div style="margin-bottom:8px;opacity:.85">${note||''}${why.length?' · '+why.join(' · '):''}</div>`+takozKutusu+lines.join('');
+  const body=`<div style="margin-bottom:8px;opacity:.85">${note||''}${why.length?' · '+why.join(' · '):''}</div>`+lines.join('');
   const title=winner===0?'Eli sen bitirdin!':(winner==null?'El bitti':`${NAMES[winner]} bitirdi`);
 
   // TUR SONU KONTROLÜ (Örn: 3 el tamamlandığında)
@@ -2313,6 +2314,56 @@ function shift(d){
 
 /* ================= ARAYÜZ ================= */
 const $=id=>document.getElementById(id);
+/* El sonunda takoza bitirenin perlerini dizer. Gruplar arasında bir boşluk
+   bırakılır, her grubun altına puanı ya da "çift" etiketi yazılır. */
+function bitirenTakozunuCiz(bt){
+  const ad = (!S.seyirci && bt.seat===SELF) ? 'Sen' : NAMES[bt.seat];
+  const kutu = $('handinfo');
+  if(kutu){
+    kutu.innerHTML='';
+    const d=document.createElement('div');
+    d.className='hi ci';
+    d.innerHTML = `<b>${ad}</b> bu taşlarla bitirdi${bt.elden?' — <b>ELDEN</b>':''}`;
+    kutu.appendChild(d);
+  }
+
+  const sira=[[],[]];
+  let r=0, i=0;
+  bt.gruplar.forEach((g,gi)=>{
+    if(i+g.tiles.length>SLOTS && r===0){ r=1; i=0; }
+    sira[r].push({basla:i, grup:g});
+    i+=g.tiles.length+1;                  // gruplar arasında bir slot boşluk
+  });
+
+  [0,1].forEach(row=>{
+    const box=$(row?'rack2':'rack1'); box.innerHTML='';
+    const slots=[];
+    for(let k=0;k<SLOTS;k++){
+      const sl=document.createElement('div');
+      sl.className='slot'; sl.dataset.r=row; sl.dataset.i=k;
+      box.appendChild(sl); slots.push(sl);
+    }
+    sira[row].forEach(({basla,grup})=>{
+      grup.tiles.forEach((t,k)=>{
+        const yer=slots[basla+k];
+        if(!yer) return;
+        const el=tileEl(t,{face:true});
+        el.classList.add('hand');
+        yer.appendChild(el);
+      });
+      const a=slots[basla], b=slots[basla+grup.tiles.length-1];
+      if(!a||!b) return;
+      const L=a.offsetLeft, W=b.offsetLeft+b.offsetWidth-L;
+      const lab=document.createElement('div');
+      lab.className='blabel'+(grup.pair?' pr':'');
+      lab.style.left=L+'px'; lab.style.width=W+'px';
+      const v=grup.pair?null:validateMeld(grup.tiles);
+      lab.textContent = grup.pair ? 'çift' : (v?String(v.points):'');
+      box.appendChild(lab);
+    });
+  });
+}
+
 function tileEl(t,o={}){
   const d=document.createElement('div'); const e=eff(t);
   const yerde=!!(o.face&&isWild(t));
@@ -2545,6 +2596,11 @@ function render(){
     zones[i].insertBefore(l, zones[i].firstChild);
   });
 
+  // El bittiyse takoz kendi elini değil, BİTİRENİN perlerini gösterir.
+  if(S.over && S.bitirenTakoz && S.bitirenTakoz.gruplar.length){
+    bitirenTakozunuCiz(S.bitirenTakoz);
+    return;
+  }
   syncRack();
   const byId={}; me().hand.forEach(t=>byId[t.id]=t);
   const geriId=(myTurn()&&S.phase==='act'&&S.lastDraw&&S.lastDraw.from==='floor'
@@ -2988,7 +3044,7 @@ const __api = {
   /* hamleler */
   doDeck, doTake, doUndo, doCollect, doJoin, doProcess, processInto,
   doDoubleOkey, doPut, doOpen, doDiscard, ciftIndir, ciftIndirIds, tableHasPairs,
-  setEmir, mateOf, EMIRLER, KAT, autoPlay, doUndo,
+  setEmir, mateOf, EMIRLER, KAT, autoPlay, doUndo, bitirenTakozunuCiz,
   doOkey(){ if(autoOkey(S.players[SELF])) render(); }
 };
 window.__api = __api;

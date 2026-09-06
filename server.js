@@ -304,6 +304,8 @@ function viewFor(room, seat) {
     // Tur bilgisi istemciye gitmezse üstteki "1. Tur" rozeti ve skor
     // penceresindeki tur geçmişi herkeste boş kalır.
     currentTour: S.currentTour, turlar: S.turlar,
+    // El bitince takoz bitirenin perlerini gösterir; herkese açık gider.
+    bitirenTakoz: S.bitirenTakoz || null,
     // Eş emirleri koltuk başına: [0,1,2,3]. Herkes kendi bandını görür.
     emir: S.emir ? S.emir.slice() : [null, null, null, null],
     // fns sunucuda kalır; istemciye yalnız düğme etiketleri gider.

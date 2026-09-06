@@ -109,6 +109,9 @@ atmasını** engeller. Aldıysan indireceksin.
 ceza yazmaz, ama **çift demiş sayılır** (§5.1). Açacaksa aldığı taşı açışında
 kullanmalıdır.
 
+Bunun el sonundaki bedeli büyüktür: çift sayılıp da açamayan **101 değil 202**
+yazar (§9). Kural insan için de bot için de aynıdır.
+
 Yerden alınan taş aynı turda geri atılamaz.
 
 ---
@@ -232,6 +235,11 @@ Bunun dışında düz açan serbesttir:
 
 Yerdeki bir perde okey joker olarak duruyorsa ve okeyin temsil ettiği taş sende
 varsa, taşını koyup **okeyi alabilirsin**. Katlamayı değiştirmez.
+Bu **çift perlerde de geçerlidir**: yerde "okey + mavi 12" duruyorsa, mavi 12'ni
+koyup okeyi alabilirsin.
+
+Bunun sonucu olarak, o taş masadaki herkes için **işlek taştır**: yerde okeyli
+bir çift varken eşini atan 71 yazar (§8).
 
 **Okey takası bir işleme sayılır.** Çift açan oyuncu için bu, o turdaki tek
 hakkını harcar (bkz. §5.5).
@@ -247,7 +255,7 @@ Bir oyuncu son taşını atınca el biter.
 | Durum | Kat |
 |---|---|
 | Çiftle bitirme | ×2 |
-| **Kimse açmamışken elden bitirme** | **×4** |
+| **Kimse açmamışken elden bitirme** | ×2 |
 | Okey atarak bitirme | ×2 |
 | **Çift okey** atarak bitirme | ×4 |
 
@@ -264,19 +272,74 @@ ikisi de aynı sayılır:
 Önceki turlarda açmış olan bir oyuncu elden bitmiş sayılmaz — açışıyla bitişi
 arasında sıra geçmiştir.
 
-*Örnek:* Kimse açmamışken 7 çifti bir anda indirip bittin. Çarpan
-2 (çiftle bitiş) × 4 (elden bitiş) = **8**. Açamayan rakip 101 × 8 = **808**
-yazar. Sen 7 çiftle açtığın için ayrıca **2 X** alırsın.
+*Örnek 1 — düz elden bitiş, okey atmadan.* Çarpan **×2**.
+- Çift deyip açamayan rakip: 101 × 2 (çift açamadı) × 2 (elden) = **404**
+- Sade açamayan rakip: 101 × 2 (elden) = **202**
+- Bitirenin eşi: **0**
 
-### 7.1 Çift okeyle bitiş
+*Örnek 2 — 7 çifti bir anda indirip elden bittin.* Çarpan 2 (çiftle bitiş)
+× 2 (elden) = **×4**. Çift deyip açamayan rakip 101 × 4 × 2 = **808** yazar.
+Sen 7 çiftle açtığın için ayrıca **2 X** alırsın.
+
+*Örnek 3 — düz elden bitiş + okey attın.* ×2 (elden) × 2 (okey) = **×4**.
+Çift okey atsaydın ×2 × 4 = **×8** olurdu.
+
+### 7.1 Çift okeyle bitiş — yalnız DÜZ oyuncuya
 
 Elinde son iki taş olarak iki okey kalırsa ikisini birden atıp bitirebilirsin.
 Şartlar: açmış olmalısın, iki okey takozda **yan yana** durmalı.
-Kimse açmamışsa da geçerlidir; biri açmışsa elinin katlamayı geçmesi gerekir.
+
+**Çift oyuncusu çift okey atamaz.** Onun elindeki iki okey bir **çifttir**:
+yere iner ve 7. çifti tamamlayarak eli bitirir. Çift oyuncusu bitirirken en
+fazla **tek okey** atabilir.
+
+*Örnek — 6 çift yerde, elde son iki taş iki okey.* İki yolu vardır:
+
+| Yol | Ne yapar | Çarpan | Açamayan rakip |
+|---|---|---|---|
+| **A** | İkisini çift olarak indirir → 7. çift | ×2 | 202 |
+| **B** | Birini yerdeki seriye işler, ötekini **atar** | ×4 | 404 |
+
+İkisini birden atmak yoktur. B yolu daha çok yazdırır ama okeyi masaya
+vermek demektir.
+
+### 7.2 Kimse açmadan bitiş — tam tablo
+
+| Bitiş | Çarpan | Sade rakip | Çift deyip açamayan |
+|---|---|---|---|
+| Elden bitme (düz), okey atmadan | ×2 | 202 | 404 |
+| Elden bitme (düz) + okey attın | ×4 | 404 | 808 |
+| Elden bitme (düz) + çift okey attın | ×8 | 808 | 1616 |
+| Çiftten bitme (7 çift), okey atmadan | ×4 | 404 | 808 |
+| Çiftten bitme (7 çift) + okey attın | ×8 | 808 | 1616 |
+| Çiftten bitme + çift okey | — | *mümkün değil* | *mümkün değil* |
+
+**Tek kişilik ile eşli farkı:** rakiplerin yazdığı sayılar aynıdır. Tek fark,
+eşli oyunda karşındaki **eşindir ve 0 yazar**; tek kişilikte o da rakiptir ve
+tablodaki sayıyı yazar.
+
+X'ler ayrıca işler (§9.1): 7 çiftle açan **2 X**, 6 çiftle açan **1 X**, düz
+elden bitende açış 101 ve üstüyse **1 X**.
+
+Bu tabloyu `testler/tablo_katlar.js` üretir; çarpanları değiştirirsen
+`node tablo_katlar.js` ile yeniden bastırabilirsin.
 
 ### 7.2 7 çift
 
 Çift oyuncusu 7. çiftini yere indirdiği anda el biter.
+
+---
+
+### 7.3 El sonunda bitirenin taşları TAKOZDA gösterilir
+
+El bitince herkesin **takozu**, bitirenin yere koyduğu perleri gösterir: seriler
+puanıyla, çiftler "çift" etiketiyle, aralarında boşlukla. Üstte
+"*<ad>* bu taşlarla bitirdi" yazar, elden bitişse "— ELDEN" eklenir.
+
+Skor penceresi yalnız **puanları** yazar; taş listesi orada değil, takozdadır.
+
+Bu, elden bitiş için tek görme şansıdır: orada taşlar tek anda inip el kapanır.
+Çok oyunculuda takoz masadaki **herkese** aynı gider.
 
 ---
 
@@ -287,6 +350,8 @@ Hepsi **71 puan**tır ve o elin puanına eklenir:
 | Ne yaptın | Ceza |
 |---|---|
 | Yerdeki perlere **işleyen (işlek) taş** attın | 71 — üstelik o taşı kimse alamaz, ölür |
+| ↳ *yerdeki bir okeyin yerine geçen taş da işlektir* | ÇİFT perdeki okey de sayılır |
+| ↳ *ama o taşla el bitiyorsa* | **ceza yok, taş da ölmez** |
 | Yerden aldığın taşı açışında/o turda kullanmadın | 71 |
 | "Alsın" izni alıp o taşı yere indirmedin | 71 |
 | Yerden taş topladın ("Taşı topla") ve taş attın | 71 |
@@ -294,6 +359,10 @@ Hepsi **71 puan**tır ve o elin puanına eklenir:
 | Yerden aldığın okey elinde kaldı | 71 |
 
 Bir turda birden fazla ceza birikebilir.
+
+**Bitiren son taşa ceza yazılmaz.** Son taşın işlek olsa da, okey olsa da, o
+taşla el bitiyorsa 71 yazmazsın ve taş ölü sayılmaz. Elden bitişte de böyledir.
+Ceza yalnız el devam ederken işlek taş atmaya yazılır.
 
 ---
 
@@ -433,7 +502,7 @@ Bütün el sonu çarpanları motorun başındaki `KAT` nesnesindedir:
 ```js
 const KAT = {
   ciftBitis:   2,   // çiftle bitirme
-  eldenBitis:  4,   // kimse açmadan elden bitirme
+  eldenBitis:  2,   // kimse açmadan elden bitirme
   okeyAtis:    2,   // okey atarak bitirme
   ciftOkey:    4,   // çift okey atarak bitirme
   ciftAcamadi: 2    // çift deyip açamayanın kendi cezası
