@@ -448,7 +448,7 @@ const mateOf=i=>(i+2)%4;
    Bu çarpan ÇİFT BİTİŞ çarpanıyla ÇARPIŞIR, biri diğerini yutmaz. */
 const KAT = {
   ciftBitis:   2,   // çiftle bitirme
-  eldenBitis:  4,   // kimse açmadan elden bitirme
+  eldenBitis:  2,   // kimse açmadan elden bitirme
   okeyAtis:    2,   // okey atarak bitirme
   ciftOkey:    4,   // çift okey atarak bitirme
   ciftAcamadi: 2    // çift deyip açamayanın kendi cezası
@@ -976,7 +976,29 @@ function endHand(winner,note){
   S.history.push(row);
   render();
 
-  const body=`<div style="margin-bottom:8px;opacity:.85">${note||''}${why.length?' · '+why.join(' · '):''}</div>`+lines.join('');
+  /* Bitirenin takozu — herkes görsün.
+     Yavaş yavaş açan birinin taşlarını zaten tur tur görüyoruz, ama ELDEN
+     bitende her şey tek anda inip el kapanıyor; kimse ne indiğini göremiyor.
+     Bu yüzden bitirenin yere koyduğu perler el sonu perdesinde gösteriliyor. */
+  const bitirenPerleri = winner==null ? [] : S.melds.filter(m=>m.owner===winner);
+  let takozKutusu='';
+  if(bitirenPerleri.length){
+    const eldenBitti = S.players[winner].openedNow &&
+                       !S.players.some(x=>x.i!==winner&&x.opened);
+    const satirlar = bitirenPerleri.map(m=>{
+      const puan = m.pair ? '' : ` <small style="opacity:.55">${(validateMeld(m.tiles)||{}).points||''}</small>`;
+      const etiket = m.pair ? '<small style="opacity:.55">çift</small> ' : '';
+      return `<div style="padding:3px 0">${etiket}<b>${tilesText(m.tiles)}</b>${puan}</div>`;
+    }).join('');
+    takozKutusu =
+      `<div style="margin:10px 0;padding:9px 10px;border-radius:9px;` +
+      `background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18)">` +
+      `<div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.6;margin-bottom:5px">` +
+      `${NAMES[winner]} bu taşlarla bitirdi${eldenBitti?' — elden':''}</div>` +
+      satirlar + `</div>`;
+  }
+
+  const body=`<div style="margin-bottom:8px;opacity:.85">${note||''}${why.length?' · '+why.join(' · '):''}</div>`+takozKutusu+lines.join('');
   const title=winner===0?'Eli sen bitirdin!':(winner==null?'El bitti':`${NAMES[winner]} bitirdi`);
 
   // TUR SONU KONTROLÜ (Örn: 3 el tamamlandığında)
@@ -2022,7 +2044,11 @@ function ciftIndir(gruplar){
   }
   if(me().barajYok){ log('· Barajı geçmeden çift indiremezsin.',true); return false; }
   const toplam = gruplar.reduce((a,g)=>a+g.length,0);
-  if(me().hand.length-toplam < 1){ log('· Atacak taş bırakmalısın.',true); return false; }
+  // Son taşlarla 7. çift kuruluyorsa el biter; "atacak taş bırak" kuralı işlemez.
+  const yediyeTamamliyor = me().pairs && (me().pairCount+gruplar.length)>=7;
+  if(me().hand.length-toplam < 1 && !yediyeTamamliyor){
+    log('· Atacak taş bırakmalısın.',true); return false;
+  }
 
   gruplar.forEach(ts=>{
     S.melds.push({tiles:ts.slice(), owner:SELF, pair:true});
@@ -2144,7 +2170,10 @@ function okeylerYanYana(){
   }
   return false;
 }
-const ciftOkeyVar=p=>p.hand.length===2&&p.hand.every(isWild)&&(p.i!==SELF||okeylerYanYana());
+/* Çift okey atarak bitirmek yalnız DÜZ oyuncuya açıktır.
+   Çift oyuncusunun elindeki iki okey bir ÇİFTTİR — atılmaz, yere iner ve
+   7. çifti tamamlayarak eli bitirir. */
+const ciftOkeyVar=p=>!p.pairs&&p.hand.length===2&&p.hand.every(isWild)&&(p.i!==SELF||okeylerYanYana());
 
 function doDoubleOkey(){
   if(!myTurn()||S.phase!=='act') return;
