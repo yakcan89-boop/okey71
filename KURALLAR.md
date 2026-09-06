@@ -149,8 +149,9 @@ de yere indirebilir.
 - Masada hiç çift yoksa bu hamle reddedilir.
 - Elde atacak taş kalmalıdır; son iki taşı çift diye indirip bitirilemez.
 
-Uygulamada üç yol da aynı işi yapar: iki taşı seçip **İşle**, hiçbir şey seçmeden
-**İşle** (takozdaki çiftleri kendiliğinden bulur), ya da **Yere koy**.
+Uygulamada üç yol da aynı işi yapar: iki taşı seçip **İşle**, **Çift diz** deyip
+hiçbir şey seçmeden **İşle** (takozda yan yana gelen çiftleri kendiliğinden
+bulur), ya da **Yere koy**.
 
 ### 5.6 Çift hakkı sorusu
 
@@ -331,3 +332,15 @@ Kodda katlama üç alanla izlenir. Yeni kod yazarken bunlara dikkat:
 | `S.pairsMax` | Masadaki en yüksek **çift açışı** | Yalnız `p.openPairs`'ten beslenir |
 
 **Kural:** `S.topOpen` ve `S.pairsMax`'a açış dışında hiçbir yerden yazılmaz.
+
+## 14. Uygulama notu — takoz sunucuda yoktur
+
+Taş dizilişi (`S.rack`) **yalnız oyuncunun tarayıcısında** yaşar. "Çift diz",
+"Seriye çevir", sürükle-bırak — hiçbiri sunucuya gitmez; sunucudaki `S.rack`
+ilk dağıtım düzeninde kalır.
+
+Sonuç: takoza bakan bir hamle sunucuda `rackBlocks()` çağırarak yazılamaz.
+Grupları **istemci hesaplar**, taş id'si olarak yollar, sunucu id'lerden taşları
+bulur. `put`, `open` ve `ciftindir` hamleleri böyle çalışır.
+
+Yeni bir "takozdan bul" özelliği eklenirken bu kurala uyulmalıdır.

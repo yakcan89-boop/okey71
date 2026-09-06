@@ -754,14 +754,31 @@
     if (meP) return pairs;
     if (finish) return pCount > mCount ? pairs : melds;
     const pts = b.melds.reduce((a, g) => a + g.points, 0);
-    if (pts >= api.threshold()) return melds;
-    if (pairs.length >= api.needPairs()) return pairs;
-    return melds;
+    let use;
+    if (pts >= api.threshold()) use = melds;
+    else if (pairs.length >= api.needPairs()) use = pairs;
+    else use = melds;
+    // Seriyle açmış oyuncu, yerde çift açan varsa çiftlerini de indirebilir.
+    // (Motordaki stageFromRack ile birebir aynı kural.)
+    const b0 = api.S.players[SEAT];
+    if (b0 && b0.opened && !b0.pairs && !b0.barajYok && api.tableHasPairs()
+        && pairs.length && use !== pairs) {
+      use = use.concat(pairs);
+    }
+    return use;
   }
 
-  // Yancı hamle yapamaz — kazara basılan her şey burada durur.
+  // Takozdaki çift grupları — "Çift diz" sonrası yan yana gelenler.
+  function ciftGruplari() {
+    const b0 = api.S.players[SEAT];
+    if (!b0 || !b0.opened || b0.barajYok) return [];
+    if (!b0.pairs && !api.tableHasPairs()) return [];
+    return api.rackBlocks().pairs.map(g => g.tiles.map(t => t.id));
+  }
+
+  // Seyirci hamle yapamaz — kazara basılan her şey burada durur.
   function kilitli() {
-    if (READONLY) { flash('Yancısın — hamleyi oyuncu yapar, sen sadece akıl verirsin.'); return true; }
+    if (READONLY) { flash('Seyircisin — masayı izliyorsun, hamleyi oyuncular yapar.'); return true; }
     return false;
   }
 
@@ -796,7 +813,15 @@
     on('btnUndo',    () => act('undo'));
     on('btnCollect', () => act('collect'));
     on('btnOkey',    () => act('okey'));
-    on('btnProcess', () => act('process', { ids: selectedIds() }));
+    on('btnProcess', () => {
+      const ids = selectedIds();
+      if (ids.length) { act('process', { ids }); return; }
+      // Hiçbir taş seçili değil: "Çift diz" ile yan yana gelen çiftleri indir.
+      // Takoz düzeni sunucuda olmadığı için gruplar burada hesaplanıp yollanır.
+      const cf = ciftGruplari();
+      if (cf.length) { act('ciftindir', { groups: cf }); return; }
+      act('process', { ids: [] });          // sebebini motor söylesin
+    });
     on('btnPut',     () => act('put',  { groups: groupsFromRack(false) }));
     on('btnOpen',    () => act('open', { groups: groupsFromRack(true) }));
     on('btnDiscard', () => {

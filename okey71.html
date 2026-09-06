@@ -1945,6 +1945,16 @@ function ciftIndir(gruplar){
   return true;
 }
 
+/* İstemci kendi takozunu bilir, sunucu bilmez. Bu yüzden çift grupları
+   TAŞ ID'siyle gelir; burada elden bulunup ciftIndir'e verilir. */
+function ciftIndirIds(idGruplari){
+  if(!Array.isArray(idGruplari)||!idGruplari.length){ log('· Geçerli çift bulunamadı.'); return false; }
+  const gruplar=idGruplari.map(ids=>
+    (ids||[]).map(id=>me().hand.find(t=>t.id===id)).filter(Boolean)
+  ).filter(g=>g.length===2);
+  return ciftIndir(gruplar);
+}
+
 function doProcess(){ withPairRight(doProcess_, selTiles()); }
 function doProcess_(){
   if(!myTurn()||S.phase!=='act'||!me().opened) return;
@@ -1953,7 +1963,9 @@ function doProcess_(){
   if(!ts.length){
     // Hiçbir taş seçilmemiş: yerde çift açan varsa takozdaki çiftleri
     // kendiliğinden indir. Kullanıcı tek tek taş seçmek zorunda kalmasın.
-    const cf = rackBlocks().pairs;
+    // Ağ modunda sunucunun takozu istemcininkiyle aynı değildir; orada
+    // grupları istemci hesaplar ve 'ciftindir' hamlesiyle yollar.
+    const cf = window.__NET__ ? [] : rackBlocks().pairs;
     if(cf.length && (me().pairs || (tableHasPairs() && !me().barajYok))){
       ciftIndir(cf.map(g=>g.tiles));
       return;
@@ -2805,7 +2817,7 @@ const __api = {
   newHand, botTurn, render, endHand,
   /* hamleler */
   doDeck, doTake, doUndo, doCollect, doJoin, doProcess, processInto,
-  doDoubleOkey, doPut, doOpen, doDiscard,
+  doDoubleOkey, doPut, doOpen, doDiscard, ciftIndir, ciftIndirIds, tableHasPairs,
   doOkey(){ if(autoOkey(S.players[SELF])) render(); }
 };
 window.__api = __api;

@@ -366,6 +366,9 @@ const ACTIONS = {
   meldput: (api, d) => api.processInto(d.id, d.mi),
   // son iki taş okeyse ikisini birden atıp bitirmek
   ciftokey: (api) => api.doDoubleOkey(),
+  // Takozdaki çiftleri yere indirme. Takoz düzeni yalnız istemcide olduğu
+  // için grupları o hesaplar, buraya taş id'si olarak gelir.
+  ciftindir: (api, d) => api.ciftIndirIds(d.groups),
   put:     (api, d) => { stage(api, d.groups); api.doPut(); },
   open:    (api, d) => { stage(api, d.groups); api.doOpen(); },
   discard: (api, d) => { api.S.selected = new Set([d.id]); api.doDiscard(false); }
