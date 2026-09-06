@@ -140,11 +140,17 @@ Hakka **tabi olmayan** hamleler:
 ### 5.5 Seriyle açan oyuncunun çift indirmesi
 
 Seri/set ile açmış bir oyuncu, **masada çiftle açmış biri varsa** kendi çiftlerini
-de yere indirebilir ("İşle" düğmesiyle, iki taşı seçerek).
+de yere indirebilir.
 
 - Bu onu çift oyuncusu **yapmaz**; düz oyuncu olarak devam eder.
 - Bu çiftler **çift katlamasını yükseltmez**.
+- Çift açış eşiğinin (5-7) bununla ilgisi yoktur; tek çift bile indirilebilir.
+- İşleme hakkı harcamaz.
 - Masada hiç çift yoksa bu hamle reddedilir.
+- Elde atacak taş kalmalıdır; son iki taşı çift diye indirip bitirilemez.
+
+Uygulamada üç yol da aynı işi yapar: iki taşı seçip **İşle**, hiçbir şey seçmeden
+**İşle** (takozdaki çiftleri kendiliğinden bulur), ya da **Yere koy**.
 
 ### 5.6 Çift hakkı sorusu
 

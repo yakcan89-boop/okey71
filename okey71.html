@@ -1653,6 +1653,13 @@ function stageFromRack(finish){
   else if(meldTot>=threshold()) use=b.melds;
   else if(b.pairs.length>=needPairs()) use=b.pairs;
   else use=b.melds;
+  // Seriyle AÇMIŞ oyuncu: yerde çift açan varsa takozdaki çiftlerini de
+  // yere indirebilir. Bunun açış eşiğiyle ilgisi yoktur, açıştan sonraki
+  // sıradan bir hamledir — bu yüzden eşik dallarının dışında ele alınıyor.
+  if(!me().pairs && me().opened && !me().barajYok && !finish
+     && tableHasPairs() && b.pairs.length && use!==b.pairs){
+    use = use.concat(b.pairs);
+  }
   if(!use.length) return false;
   use.forEach(g=>{
     S.staging.push(g);
@@ -1779,7 +1786,10 @@ function doOpen(){
 function doPut(){
   if(!myTurn()||S.phase!=='act'||!me().opened) return;
   if(!S.staging.length&&!stageFromRack(false)){
-    log('· Takozda geçerli bir grup yok.');
+    if(rackBlocks().pairs.length && !me().pairs && !tableHasPairs())
+      log('· Yerde çift açan yok — çiftini ancak biri çift açtıysa indirebilirsin.',true);
+    else
+      log('· Takozda geçerli bir grup yok.');
     return;
   }
   withPairRight(doPut_, [].concat(...S.staging.map(g=>g.tiles)));
@@ -1789,6 +1799,10 @@ function doPut_(){
   if(!myTurn()||S.phase!=='act'||!me().opened) return;
   if(!S.staging.length){ log('· Takozda geçerli bir grup yok.'); return; }
   if(me().pairs&&!S.staging.every(g=>g.pair)){ log('· Sadece çift koyabilirsin.'); return; }
+  if(!me().pairs && S.staging.some(g=>g.pair) && (!tableHasPairs()||me().barajYok)){
+    log('· Yerde çift açan yok — çiftini ancak biri çift açtıysa indirebilirsin.',true);
+    return;
+  }
   if(me().hand.length<1){ log('· Atacak taş bırakmalısın.'); return; }
   
   S.staging.forEach(g=>{
@@ -1899,34 +1913,62 @@ function processInto_(id,mi){
   render();
 }
 
+/* Bir ya da daha çok çifti yere indirir.
+   Üç yerden çağrılır: taş seçip "İşle", seçmeden "İşle" (takozdan) ve
+   "Yere koy". Çift açan oyuncunun kendi çiftleri de, seriyle açmış
+   oyuncunun yerde çift varken indirdiği çiftler de buradan geçer. */
+function ciftIndir(gruplar){
+  gruplar = gruplar.filter(g=>g&&g.length===2&&validatePair(g));
+  if(!gruplar.length){ log('· Geçerli çift bulunamadı.'); return false; }
+  if(!me().pairs && !tableHasPairs()){
+    log('· Yerde çift açan yok — çiftini ancak biri çift açtıysa indirebilirsin.',true);
+    return false;
+  }
+  if(me().barajYok){ log('· Barajı geçmeden çift indiremezsin.',true); return false; }
+  const toplam = gruplar.reduce((a,g)=>a+g.length,0);
+  if(me().hand.length-toplam < 1){ log('· Atacak taş bırakmalısın.',true); return false; }
+
+  gruplar.forEach(ts=>{
+    S.melds.push({tiles:ts.slice(), owner:SELF, pair:true});
+    clearLay(me(),ts); clearRelay(me(),ts);
+    const ids=new Set(ts.map(t=>t.id));
+    me().hand=me().hand.filter(t=>!ids.has(t.id));
+    // Sonradan inen çift katlamayı yükseltmez; yalnız kendi sayacını artırır.
+    if(me().pairs) me().pairCount++;
+  });
+  S.selected.clear();
+  log(me().pairs ? `${me().pairCount}. çiftini yere indirdin.`
+                 : (gruplar.length>1 ? `${gruplar.length} çiftini masaya indirdin.`
+                                     : 'Çiftini masaya indirdin.'), true);
+  render();
+  if(me().pairs && me().pairCount>=7) endHand(SELF,'7 çift yaptın.');
+  return true;
+}
+
 function doProcess(){ withPairRight(doProcess_, selTiles()); }
 function doProcess_(){
   if(!myTurn()||S.phase!=='act'||!me().opened) return;
   if(me().barajYok){ log(`· Barajı geçmeden işleme yapamazsın.`,true); return; }
   const ts=selTiles();
-  if(!ts.length){ log('· İşlenecek taşları seç.'); return; }
-  const isPair=me().pairs;
-
-  if(ts.length===2 && validatePair(ts)){
-    if(!isPair && !tableHasPairs()){
-      log('· Yerde çift açan yok — çiftini ancak biri çift açtıysa yere indirebilirsin.',true);
+  if(!ts.length){
+    // Hiçbir taş seçilmemiş: yerde çift açan varsa takozdaki çiftleri
+    // kendiliğinden indir. Kullanıcı tek tek taş seçmek zorunda kalmasın.
+    const cf = rackBlocks().pairs;
+    if(cf.length && (me().pairs || (tableHasPairs() && !me().barajYok))){
+      ciftIndir(cf.map(g=>g.tiles));
       return;
     }
-    if(me().hand.length-2 < 1){ log('· Atacak taş bırakmalısın.',true); return; }
-    
-    S.melds.push({tiles:ts.slice(), owner:SELF, pair:true});
-    clearLay(me(),ts); clearRelay(me(),ts);
-    const ids=new Set(ts.map(t=>t.id));
-    me().hand=me().hand.filter(t=>!ids.has(t.id));
-    
-    // Sonradan indirilen çift katlamayı yükseltmez; yalnız kendi sayacını artırır.
-    if(isPair) me().pairCount++;
-    S.selected.clear();
-    log(isPair ? `${me().pairCount}. çiftini yere indirdin.` : 'Çiftini masaya indirdin.');
-    render();
-    if(isPair && me().pairCount>=7) endHand(SELF,'7 çift yaptın.');
+    // Takozda çift var ama indirilemiyor: sebebini söyle, boş mesaj verme.
+    if(cf.length && !me().pairs && !tableHasPairs()){
+      log('· Yerde çift açan yok — çiftini ancak biri çift açtıysa indirebilirsin.',true);
+      return;
+    }
+    log('· İşlenecek taşları seç.');
     return;
   }
+  const isPair=me().pairs;
+
+  if(ts.length===2 && validatePair(ts)){ ciftIndir([ts]); return; }
 
   if(isPair && me().proc>=1){
     log('· Çift açan turda 1 işleme hakkı var (okey takası dâhil) — hakkın bitti.');
