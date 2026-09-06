@@ -1137,6 +1137,7 @@ const tilesText=ts=>ts.map(t=>isWild(t)?'OKEY':tileName(t)).join(' · ');
 
 function askPairRight(discarder, taker, tile, cb){
   if(discarder.opened||discarder.pairs) return cb(true);
+  if(taker.pairs) return cb(true);      // çifte giden zaten sormaz
   log(`${taker.name}, ${discarder.name} adlı oyuncunun attığı ${tileName(tile)} taşıyla düz açmak istiyor — çift hakkı soruldu.`,true);
   const plan=plannedMeld(taker,tile);
   const planTxt = plan
@@ -1580,7 +1581,11 @@ function doTake(){
     const t=takeDiscard(me());
     S.phase='act'; me().openedNow=false; me().proc=0; me().procMap={};
     me().retracted=false; me().layNow=false; me().procLog=[]; me().mustRelay=null;
-    S.lastDraw={from:'floor',tile:t,owner:prev.i,needAsk:!prev.opened&&!prev.pairs,asked:false};
+    // Çift hakkı sorusu YALNIZ "senin taşınla DÜZ açacağım" durumunda sorulur.
+    // Zaten çifte gitmiş oyuncu yerden taş alırken kimseye sormaz — çifte
+    // gittiğini masa biliyor, alıp yere indiremezse cezasını kendisi yer.
+    S.lastDraw={from:'floor',tile:t,owner:prev.i,
+                needAsk:!prev.opened&&!prev.pairs&&!me().pairs, asked:false};
     snapTurn();
     if(!me().opened&&!me().pairs) me().mustOpen=true;   
     me().pendingLay = (prev.opened&&!me().opened) ? t.id : null;   
@@ -1593,14 +1598,18 @@ function doTake(){
     log(`· ${prev.name} çifte gidiyor — attığı taşı sadece çifte giden alabilir.`);
     return;
   }
-  if(me().pairs) return takeAction();          
-
+  // AÇMIŞ oyuncu — düz de olsa çift de olsa — aldığı taşı o tur yere
+  // indirmek zorundadır. İndiremezse 71 ceza. Çift oyuncusu için "indirmek"
+  // eşini bulup çift olarak koymak ya da işlemek demektir.
   if(me().opened){
     takeAction('bu tur yere indir');
     me().pendingLay=top.id; me().layNow=true;
     return;
   }
-  
+
+  // Henüz açmamış çift oyuncusu taş toplar; borcu yoktur.
+  if(me().pairs) return takeAction();
+
   takeAction('açacaksan yere indir, yoksa çift sayılırsın');
 }
 
