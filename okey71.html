@@ -2175,6 +2175,26 @@ function doDiscard(auto){
     }
   }
   const bitiyor = me().hand.length===1;
+
+  /* Yerden alınan taş yere inmeden TAŞ ATILAMAZ.
+     Eskiden atmaya izin verilip 71 ceza yazılıyordu; böylece oyuncu istediği
+     taşı alıp başka taşı atarak eşine yem verebiliyordu. Artık atış engelli:
+     ya indirecek, ya "Geri bırak" diyecek, ya da süre dolacak (o zaman taş
+     yere iade edilir, desteden çekilir ve 71 yazılır).
+     Tek istisna: bu turda zaten açtıysa "Geri bırak" kapalıdır — masayı
+     kilitlememek için atışa izin verilir ve ceza yazılır. */
+  if(!bitiyor && auto!==true){
+    const borclu = (me().layNow && me().pendingLay && me().hand.some(x=>x.id===me().pendingLay))
+      ? me().pendingLay
+      : (me().izinBorcu && !S.melds.some(m=>m.tiles.some(x=>x.id===me().izinBorcu))
+          ? me().izinBorcu : null);
+    if(borclu && !me().openedNow){
+      const bt = me().hand.find(x=>x.id===borclu);
+      log(`· Yerden aldığın ${bt?tileName(bt):'taşı'} yere indirmeden taş atamazsın — `+
+          `ya indir/işle, ya “Geri bırak” de.`,true);
+      return;
+    }
+  }
   if(isLive(t)&&!bitiyor&&auto!==true&&!confirm('Bu taş yerdeki perlere işliyor. Atarsan 71 ceza yazarsın. Yine de atılsın mı?')) return;
   let ciftNow=false;
   if(me().mustOpen&&!me().opened){
@@ -2650,14 +2670,25 @@ function autoPlay(){
   if(!myTurn()) return;
   if(S.staging.length){ S.staging.forEach(g=>me().hand.push(...g.tiles)); S.staging=[]; }
   const d0=S.lastDraw;
-  if(d0&&d0.from==='floor'&&!me().opened){
+  // Süre dolduğunda yerden alınan taş — açmış oyuncuda da — yere iade edilir,
+  // oyuncu desteden çekip atar. Açmış oyuncu yere indirmediği için 71 yazar.
+  const indirmedi = d0 && d0.from==='floor' && me().opened &&
+                    me().hand.some(x=>x.id===d0.tile.id) &&
+                    !S.melds.some(m=>m.tiles.some(x=>x.id===d0.tile.id));
+  if(d0&&d0.from==='floor'&&(!me().opened||indirmedi)){
     const i=me().hand.findIndex(x=>x.id===d0.tile.id);
     if(i>=0){
       me().hand.splice(i,1);
       S.players[d0.owner].discards.push(d0.tile);
-      log(`Süre doldu — ${tileName(d0.tile)} geri bırakıldı.`,true);
+      if(indirmedi){
+        me().fine+=71;
+        log(`Süre doldu — ${tileName(d0.tile)} yere indirilmedi, geri iade edildi. 71 ceza.`,true);
+      } else {
+        log(`Süre doldu — ${tileName(d0.tile)} geri bırakıldı.`,true);
+      }
     }
-    me().mustOpen=false; S.lastDraw=null; S.phase='draw';
+    me().mustOpen=false; me().pendingLay=null; me().layNow=false; me().izinBorcu=null;
+    S.lastDraw=null; S.phase='draw';
   }
   if(S.phase==='draw'){
     const t=drawPile();
@@ -2919,7 +2950,7 @@ const __api = {
   /* hamleler */
   doDeck, doTake, doUndo, doCollect, doJoin, doProcess, processInto,
   doDoubleOkey, doPut, doOpen, doDiscard, ciftIndir, ciftIndirIds, tableHasPairs,
-  setEmir, mateOf, EMIRLER, KAT,
+  setEmir, mateOf, EMIRLER, KAT, autoPlay, doUndo,
   doOkey(){ if(autoOkey(S.players[SELF])) render(); }
 };
 window.__api = __api;

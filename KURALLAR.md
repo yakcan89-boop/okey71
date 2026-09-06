@@ -88,10 +88,28 @@ Tamamlanan sayı katlama olarak yazılır.
 
 ### 4.4 Yerden alınan taşın borcu
 
-- Açmamış bir oyuncu yerden taş aldıysa, o taşı **açışında kullanmak zorundadır**.
-- Açmış bir oyuncu yerden taş aldıysa, o taşı **aynı tur yere indirmek zorundadır**.
-- İndirmezse **71 ceza** yazar.
-- Yerden alınan taş aynı turda geri atılamaz.
+**Açmış** bir oyuncu (düz ya da çift fark etmez) yerden aldığı taşı **o tur yere
+indirmek zorundadır.** Yollar:
+
+- Yerdeki bir pere işlemek
+- Eşi elindeyse çift olarak indirmek
+- Kendi peri olarak yere koymak
+
+**Taşı yere indirmeden TAŞ ATAMAZ.** Oyun atışa izin vermez. Üç çıkışı vardır:
+
+1. Taşı yere indirir / işler → ceza yok
+2. **"Geri bırak"** der → taş yere döner, ceza yok, desteden çeker
+3. Süresi dolar → taş kendiliğinden yere iade edilir, desteden çekilir ve
+   **71 ceza** yazılır
+
+Bu kural, oyuncunun istediği taşı alıp **başka bir taşı eşine yem olarak
+atmasını** engeller. Aldıysan indireceksin.
+
+**Açmamış** bir oyuncu yerden taş alabilir ve başka bir taş atarak devam edebilir;
+ceza yazmaz, ama **çift demiş sayılır** (§5.1). Açacaksa aldığı taşı açışında
+kullanmalıdır.
+
+Yerden alınan taş aynı turda geri atılamaz.
 
 ---
 
@@ -164,6 +182,10 @@ hiçbir şey seçmeden **İşle** (takozda yan yana gelen çiftleri kendiliğind
 bulur), ya da **Yere koy**.
 
 ### 5.7 Çift hakkı sorusu
+
+Bu soru **yalnızca** "senin taşınla DÜZ açacağım" durumunda sorulur.
+**Çifte gitmiş bir oyuncu yerden taş alırken kimseye sormaz** — çifte gittiğini
+masa zaten bilir, alıp yere indiremezse cezasını kendisi yer.
 
 Bir oyuncu, **henüz açmamış ve çift dememiş** birinin attığı taşı alıp **düz açmak**
 isterse, taşı atan kişiye sorulur:
