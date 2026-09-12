@@ -572,10 +572,15 @@ Yeni sahip bütün yetkileri alır: oturma isteklerini onaylar, masayı kapatabi
 **"Masayı Kapat"** — bu devretmez, **odayı tümden kapatır**. Herkes düşer.
 Yalnız oda sahibi yapabilir.
 
-### 12.4 Oda kodu
+### 12.4 Oda kodu ve tur süresi
 
-Oyun ekranının üst çubuğunda **"ZXCV adlı oda"** rozeti durur. Masaya birini
-çağırmak için lobiye dönmek gerekmez; rozete dokununca kod panoya kopyalanır.
+Oda kodu **puan tablosunun başlığında** yazar: "**XXBN adlı oda · Puan Tablosu**".
+Üst çubuğa konmadı, telefonda düğmelerin altında kalıyordu.
+
+**Tur süresi masanın ortak ayarıdır ve yalnız oda sahibi değiştirir.** Üstteki
+süre rozetine dokunmak sırayla kapalı → 20 → 30 → 45 → 60 saniye arasında
+gezdirir; ayar anında masadaki herkese uygulanır. Sahip olmayan dokunursa
+"Süreyi oda sahibi ayarlar" uyarısı alır.
 
 ### 12.5 Oda ömrü
 

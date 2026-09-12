@@ -59,6 +59,7 @@ function makeRoom(teams) {
     watchers: [],                      // {pid, name, lastSeen}
     owner: null,                       // oda sahibinin pid'i (koltuk değişse de sabit)
     sira: 0,                           // katılım sırası sayacı (sahiplik devri buna bakar)
+    timerSec: 0,                       // tur süresi — masanın ortak ayarı, sahibi belirler
     // Oyun BAŞLADIKTAN sonra masaya oturmak oda sahibinin onayına bağlıdır.
     // {pid, ad, seat, t} — seat: istenen koltuk (null = fark etmez)
     istekler: [],
@@ -313,6 +314,8 @@ function viewFor(room, seat) {
     started: room.started,
     seat,
     watcher: seat < 0,
+    odaKodu: room.code,
+    timerSec: room.timerSec || 0,
     freeSeats: room.seats.map((x, i) => (x ? -1 : i)).filter(i => i >= 0),
     // Boş koltuklara oyun sırasında BOT bakar; istemci "bot oynuyor" yazsın.
     botKoltuklar: room.started
@@ -733,6 +736,21 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Oda sahibi oturma isteğini onaylar ya da reddeder.
+  // Tur süresi masanın ortak ayarıdır; yalnız oda sahibi değiştirir.
+  if (p === '/api/sure' && req.method === 'POST') {
+    const d = await readBody(req);
+    const room = rooms.get(String(d.code || '').toUpperCase());
+    if (!room) return send(res, 404, { err: 'Oda yok.' });
+    if (d.pid !== room.owner) return send(res, 403, { err: 'Süreyi oda sahibi ayarlar.' });
+    const sn = Math.max(0, Math.min(120, Math.round(Number(d.sn) || 0)));
+    room.timerSec = sn;
+    if (room.api) room.api.S.timerSec = sn;
+    room.log.push({ m: sn ? `· Tur süresi ${sn} saniyeye ayarlandı.` : '· Tur süresi kapatıldı.',
+                    t: Date.now() });
+    push(room);
+    return send(res, 200, { ok: true, timerSec: sn });
+  }
+
   if (p === '/api/onay' && req.method === 'POST') {
     const d = await readBody(req);
     const room = rooms.get(String(d.code || '').toUpperCase());

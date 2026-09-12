@@ -344,6 +344,10 @@
     S.currentTour = v.currentTour || 1; S.turlar = v.turlar || [];
     S.emir = v.emir || [null, null, null, null];
     S.bitirenTakoz = v.bitirenTakoz || null;
+    // Oda kodu puan tablosunun başlığında görünür; süre masanın ortak ayarı.
+    S.odaKodu = v.odaKodu || CODE || null;
+    S.odaSahibi = !!v.owner;
+    S.timerSec = v.timerSec || 0;
     S.deck = new Array(v.deck).fill(0);
     S.center = new Array(v.center).fill(0).map((_, i) => ({ id: -100 - i }));
     S.melds = v.melds;
@@ -527,7 +531,6 @@
     if (!v.started) { lob.style.display = ''; showWaiting(v); return; }
     if (!STARTED) { STARTED = true; bind(); }
     lob.style.display = 'none';
-    odaRozeti();
     apply(v);
     checkLeaveButton(true);
     seyirciCubugu(v);
@@ -574,23 +577,6 @@
     });
     const a = document.getElementById('lbAyril');
     if (a) a.onclick = () => ayril(false);
-  }
-
-  /* Oyun içinde oda kodu görünsün — masaya birini çağırmak için lobiye
-     dönmek gerekmesin. Dokununca kod panoya kopyalanır. */
-  function odaRozeti() {
-    const e = document.getElementById('pOda');
-    if (!e || !CODE) return;
-    e.innerHTML = '<b>' + CODE + '</b> adlı oda';
-    e.classList.remove('hidden');
-    e.onclick = async () => {
-      try {
-        await navigator.clipboard.writeText(CODE);
-        flash(CODE + ' kopyalandı.');
-      } catch (err) {
-        flash('Oda kodu: ' + CODE);
-      }
-    };
   }
 
   /* ---------- oturma istekleri ----------
@@ -910,6 +896,18 @@
         act('emir', { m: mb.dataset.m });
       };
     });
+
+    // Tur süresi masanın ortak ayarı: yalnız oda sahibi değiştirir.
+    const st = document.getElementById('pTime');
+    if (st) st.onclick = async () => {
+      if (!api.S.odaSahibi) { flash('Süreyi oda sahibi ayarlar.'); return; }
+      const SECENEK = [0, 20, 30, 45, 60];
+      const su = api.S.timerSec || 0;
+      const sn = SECENEK[(SECENEK.indexOf(su) + 1) % SECENEK.length];
+      const r = await post('/api/sure', { code: CODE, pid: PID, sn });
+      if (r && r.err) flash(r.err);
+      else flash(sn ? 'Tur süresi ' + sn + ' saniye.' : 'Tur süresi kapalı.');
+    };
 
     on('btnProcess', () => {
       const ids = selectedIds();
