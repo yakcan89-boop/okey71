@@ -422,7 +422,7 @@ const S={
   melds:[],staging:[],selected:new Set(),
   totals:[0,0,0,0],xm:[0,0,0,0],history:[],handNo:1,hands:DEFAULT_HANDS,
   turlar:[], currentTour:1, seyirci:false,
-  doubled:false,pairsMax:0,topOpen:0,okeyFinish:false,ciftOkeyFinish:false,lastDraw:null,teams:false,timerSec:0,rack:null,dealer:0,snap:null,emir:[null,null,null,null],bitirenTakoz:null,over:false,busy:false
+  doubled:false,pairsMax:0,topOpen:0,okeyFinish:false,ciftOkeyFinish:false,lastDraw:null,teams:false,timerSec:0,rack:null,dealer:0,snap:null,emir:[null,null,null,null],bitirenTakoz:null,seriOylari:[],over:false,busy:false
 };
 
 const totalHands=()=>S.hands||DEFAULT_HANDS;
@@ -958,8 +958,11 @@ function endHand(winner,note){
     const sameTeam = S.teams && winner!=null && ((p.i%2)===(winner%2));
     // Elde kalan OKEY 71 yazdırır — yerden aldığın da olsa, sana dağıtılan da
     // olsa. Bitiren ve (eşli oyunda) bitirenin eşi bundan muaftır.
+    // Okey cezası yalnız AÇMIŞ oyuncuya yazılır: açamayan zaten 101 yiyor,
+    // eline okey gelmiş olması onun suçu değil.
+    // Tek muafiyet bu cezadadır: eşli oyunda eşi bitirdiyse yazılmaz.
     const eldeOkey = p.hand.filter(isWild).length;
-    if(eldeOkey && p.i!==winner && !sameTeam){
+    if(eldeOkey && p.opened && p.i!==winner && !sameTeam){
       p.fine+=71;
       log(`${adOf(p.i)} okeyi elinde tuttu — 71 ceza.`,true);
     }
@@ -1055,7 +1058,18 @@ function endHand(winner,note){
   }
 }
 
-function gosterTurBitisEkrani(buTur, elGovdesi){
+/* Seriyi bitirme oyu. Yeterli oy toplanmadıysa perde yeniden açılır ve
+   kaç oy olduğu yazar; masadaki herkes durumu görür. */
+function seriOyu(gereken, buTur){
+  if(!Array.isArray(S.seriOylari)) S.seriOylari=[];
+  if(S.seriOylari.indexOf(SELF)<0) S.seriOylari.push(SELF);
+  const n=S.seriOylari.length;
+  if(n>=gereken){ S.seriOylari=[]; seriyiBitirVeSifirla(); return; }
+  log(`${NAMES[SELF]} seriyi bitirmek istiyor — ${n}/${gereken} oy.`,true);
+  gosterTurBitisEkrani(buTur, null, true);
+}
+
+function gosterTurBitisEkrani(buTur, elGovdesi, yeniden){
   // Son elin puan satırları da görünmeli — turun son eli sessizce yutulmasın.
   let html = elGovdesi ? `<div style="margin-bottom:10px">${elGovdesi}</div>` : '';
   html += `<div style="padding:10px;background:rgba(245,195,59,.18);border:1px solid rgba(245,195,59,.4);border-radius:8px;margin-bottom:12px;">
@@ -1065,14 +1079,25 @@ function gosterTurBitisEkrani(buTur, elGovdesi){
   </div>`;
 
   html += turGecmisiHTML();
+  const oy = Array.isArray(S.seriOylari) ? S.seriOylari.length : 0;
+  if(oy) html += `<div style="margin:8px 0;padding:7px 9px;border-radius:8px;`+
+    `background:rgba(224,87,79,.18);border:1px solid rgba(224,87,79,.45);font-size:12.5px">`+
+    `Seriyi bitirmek isteyen: <b>${S.seriOylari.map(i=>NAMES[i]).join(', ')}</b> `+
+    `<small style="opacity:.7">(${oy}/${window.__NET__?3:1})</small></div>`;
   html += `<div style="margin-top:10px;">${scoreTableHTML()}</div>`;
 
   // Tablo, sıfırlamadan ÖNCE kurulmuş olmalı — kuruldu, artık düğmeler bağlanabilir.
+  // Seriyi bitirmek tek kişinin kararı değildir: masadan EN AZ 3 oy gerekir.
+  // Tek kişilik oyunda karşında bot var, oylama anlamsız — tek oy yeter.
+  const gereken = window.__NET__ ? 3 : 1;
+  // Oylar yalnız perde İLK açılışında sıfırlanır. Oy verildikçe perde
+  // yeniden açılıyor; orada sıfırlarsak sayaç hiç ilerlemez.
+  if(!yeniden) S.seriOylari = [];
   showVeil(`${buTur.turNo}. Tur Bitti`, html, [
     { t: `${buTur.turNo + 1}. Tura Geç`, cls: 'gold',
-      fn: () => { S.currentTour++; sonrakiTuraBasla(); } },
-    { t: 'Seriyi Bitir', cls: 'red',
-      fn: () => seriyiBitirVeSifirla() }
+      fn: () => { S.seriOylari=[]; S.currentTour++; sonrakiTuraBasla(); } },
+    { t: `Seriyi Bitir (${gereken} oy)`, cls: 'red',
+      fn: () => seriOyu(gereken, buTur) }
   ], null, true);
 }
 
@@ -1110,6 +1135,7 @@ function seriyiBitirVeSifirla(){
   showVeil('Tüm Oyun Serisi Bitti', ozet, 'Sıfırdan Yeni Oyun Kur', () => {
     S.turlar = [];
     S.currentTour = 1;
+    S.seriOylari = [];
     // Ağda masayı sunucu yönetiyor; tek kişilik kurulum sorusu açılmamalı.
     if(window.__NET__){ sonrakiTuraBasla(); return; }
     startGame();
@@ -1730,7 +1756,10 @@ function doUndo(){
   if(d.from==='deck') S.center.push(d.tile);
   else S.players[d.owner].discards.push(d.tile);
   if(d.declared){ me().pairs=false; me().mustOpen=false; if(d.first) S.doubled=false; log(`${NAMES[SELF]} çift kararını geri aldı.`); }
-  S.lastDraw=null; S.phase='draw'; me().mustOpen=false; me().pendingLay=null;
+  // Taş geri gitti: bu taşa bağlı BÜTÜN borçlar silinir. izinBorcu kalırsa
+  // oyuncu bir daha taş atamıyor ve masa kilitleniyordu.
+  S.lastDraw=null; S.phase='draw';
+  me().mustOpen=false; me().pendingLay=null; me().layNow=false; me().izinBorcu=null;
   log(`${NAMES[SELF]} ${tileName(d.tile)} taşını geri bıraktı.`);
   render();
 }
@@ -2290,7 +2319,11 @@ function doDiscard(auto){
   if(!bitiyor && auto!==true){
     const borclu = (me().layNow && me().pendingLay && me().hand.some(x=>x.id===me().pendingLay))
       ? me().pendingLay
-      : (me().izinBorcu && !S.melds.some(m=>m.tiles.some(x=>x.id===me().izinBorcu))
+      : (me().izinBorcu
+         // Taş HÂLÂ ELİNDE olmalı. Geri bıraktıysan borç yoktur; eskiden bu
+         // koşul yoktu ve taşı iade eden oyuncu bir daha taş atamıyordu.
+         && me().hand.some(x=>x.id===me().izinBorcu)
+         && !S.melds.some(m=>m.tiles.some(x=>x.id===me().izinBorcu))
           ? me().izinBorcu : null);
     if(borclu && !me().openedNow){
       const bt = me().hand.find(x=>x.id===borclu);
@@ -2299,7 +2332,12 @@ function doDiscard(auto){
       return;
     }
   }
-  if(isLive(t)&&!bitiyor&&auto!==true&&!confirm('Bu taş yerdeki perlere işliyor. Atarsan 71 ceza yazarsın. Yine de atılsın mı?')) return;
+  // Okeyi atmak yerde per olmasa bile 71 yazdırır ve taş ölür.
+  const cezaliAtis = !bitiyor && (isWild(t) || isLive(t));
+  if(cezaliAtis && auto!==true &&
+     !confirm(isWild(t)
+       ? 'OKEYİ atıyorsun. 71 ceza yazarsın ve taş ölür. Yine de atılsın mı?'
+       : 'Bu taş yerdeki perlere işliyor. Atarsan 71 ceza yazarsın. Yine de atılsın mı?')) return;
   let ciftNow=false;
   if(me().mustOpen&&!me().opened){
     if(auto===true) log('Süre doldu — çift sayılmadın.',true);
@@ -2309,7 +2347,7 @@ function doDiscard(auto){
   if(!bitiyor&&me().layNow&&me().pendingLay&&me().hand.some(x=>x.id===me().pendingLay)){
     tasBorcu=true; sebep='Aldığın taşı yere indirmedin';
   }
-  if(!bitiyor&&me().izinBorcu){
+  if(!bitiyor&&me().izinBorcu&&me().hand.some(x=>x.id===me().izinBorcu)){
     const yerde=S.melds.some(m=>m.tiles.some(t=>t.id===me().izinBorcu));
     if(!yerde){ tasBorcu=true; sebep='İzin alıp o taşı yere indirmedin'; }
   }
@@ -2330,7 +2368,14 @@ function doDiscard(auto){
   me().hand=me().hand.filter(x=>x.id!==t.id);
   me().discards.push(t);
   S.okeyFinish=isWild(t); S.ciftOkeyFinish=false;
-  if(isLive(t)&&!bitiyor){ t.dead=true; if(auto!==true){ me().fine+=71; log(`${NAMES[SELF]} işlek taş attı — 71 ceza. Bu taşı kimse alamaz.`,true); } }
+  if(cezaliAtis){
+    t.dead=true;
+    if(auto!==true){
+      me().fine+=71;
+      log(isWild(t) ? `${NAMES[SELF]} OKEYİ attı — 71 ceza. Taş öldü, kimse alamaz.`
+                    : `${NAMES[SELF]} işlek taş attı — 71 ceza. Bu taşı kimse alamaz.`,true);
+    }
+  }
   S.selected.clear(); log(`${NAMES[SELF]} ${tileName(t)} attı.`); render();
   if(me().hand.length===0){ endHand(SELF,'Son taşını attın.'); return; }
   advance();

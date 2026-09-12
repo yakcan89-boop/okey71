@@ -279,8 +279,11 @@ bir çift varken eşini atan 71 yazar (§8).
 **Okey takası bir işleme sayılır.** Çift açan oyuncu için bu, o turdaki tek
 hakkını harcar (bkz. §5.5).
 
-El sonunda elinde **okey** kalırsa **71 ceza** yazarsın. Bu, yerden aldığın okey
-için de sana dağıtılan okey için de geçerlidir; açmış olman fark etmez.
+**Açmış** bir oyuncunun elinde el sonunda **okey** kalırsa **71 ceza** yazar.
+Yerden aldığın okey de, sana dağıtılan okey de aynıdır.
+
+**Açamayan bu cezayı yemez** — zaten 101 yiyor, eline okey gelmiş olması onun
+suçu değil.
 
 Muaf olanlar: **bitiren** oyuncu ve **eşli oyunda bitirenin eşi**. Tek kişilik
 oyunda muafiyet yoktur.
@@ -402,6 +405,21 @@ Hepsi **71 puan**tır ve o elin puanına eklenir:
 
 Bir turda birden fazla ceza birikebilir.
 
+### 8.1 Cezalar KESİNDİR
+
+Yazılan ceza silinmez. Eşin bitirse de, sen bitirsen de, tek kişilik oyunda ne
+olursa olsun **ceza puanına eklenir**. "Eşi bitirdi → 0 yazar" kuralı yalnız
+elindeki taşların puanını sıfırlar, cezaları değil.
+
+**Tek istisna:** elde kalan okey cezası. Eşli oyunda eşin bitirdiyse o
+yazılmaz. Diğer bütün cezalar her hâlükârda yazılır.
+
+### 8.2 Okeyi atmak
+
+Okeyi atmak **her zaman 71 ceza** yazdırır ve taş **ölür** — yerde hiç per
+olmasa bile. İşlek taş kuralının özel hâlidir; okey her şeye yaradığı için
+atılması her zaman kasıtlı sayılır.
+
 **Bitiren son taşa ceza yazılmaz.** Son taşın işlek olsa da, okey olsa da, o
 taşla el bitiyorsa 71 yazmazsın ve taş ölü sayılmaz. Elden bitişte de böyledir.
 Ceza yalnız el devam ederken işlek taş atmaya yazılır.
@@ -453,6 +471,9 @@ Hiç kimse açmadan el biterse puan yazılmaz, **aynı el yeniden dağıtılır*
   - **"Sonraki Tura Geç"** — puanlar sıfırlanır, el sayacı 1'e döner, dağıtan bir kayar,
     tur sonucu geçmişe yazılır.
   - **"Seriyi Bitir"** — tüm turların şampiyonu ilan edilir ve seri sıfırlanır.
+  Bu tek kişinin kararı değildir: çok oyunculuda **en az 3 oy** gerekir.
+  Yeterli oy yoksa perde yeniden açılır ve kimin oy verdiği yazar.
+  Tek kişilik oyunda tek oy yeter.
 - Tur geçmişi skor penceresinden (üstteki skor düğmesi) her zaman görülebilir.
 
 ---

@@ -751,7 +751,11 @@ const server = http.createServer(async (req, res) => {
     const idx = Math.max(0, Math.min(fns.length - 1, parseInt(d.idx, 10) || 0));
     const fn = fns[idx];
     room.pendingNext = null;
+    // Düğmeye BASAN koltuk belli olmalı: seri bitirme oyu kime yazılacak
+    // buna bakıyor. Eskiden hep 0 numaraya yazılıyordu.
+    room.api.setSelf(seat);
     try { if (fn) fn(); } catch (e) {}
+    room.api.setSelf(0);
     push(room);
     return send(res, 200, { ok: true });
   }
