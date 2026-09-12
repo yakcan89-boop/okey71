@@ -533,17 +533,57 @@ Masada oturmayan herkes **seyircidir**. Ayrı bir "yancı" rolü yoktur.
 - Seyirci masadan istediği an ayrılabilir.
 - İleride sohbet eklenirse seyirci de mesaj yazabilecek.
 
-### 12.1 Kopma
+### 12.1 Kopma ve geri dönüş
 
-- 70 saniye hiç yoklama gelmezse oyuncu kopmuş sayılır, elini **bot devralır**;
-  oyuncu dönünce koltuğunu geri alır.
-- Masadan kendi isteğiyle ayrılanın koltuğu **boşalır**, başkası oturabilir.
-- Oda sahibi ayrılırsa sahiplik masadaki başka birine geçer.
+İki durum birbirinden ayrıdır:
+
+**Bağlantı koptu / sekmeyi kapattı** — "Masadan ayrıl" demedi.
+- Koltuk **korunur**. 70 saniye yoklama gelmezse elini **bot devralır**,
+  oyun durmaz.
+- Kişi dönünce koltuğunu **kendiliğinden geri alır**; izin gerekmez.
+
+**"Masadan ayrıl" dedi** — koltuğu bilerek bıraktı.
+- Koltuk **boşalır**, yerine bot bakar.
+- Geri dönmek isterse kodu girer ama **doğrudan oturamaz**: oda sahibine
+  "*X* masaya oturmak istiyor" diye bir istek düşer. Sahip **Otursun** derse
+  oturur, **Alma** derse seyirci kalır.
+
+### 12.2 Masaya oturma izni
+
+Oyun **başlamadan** önce boş koltuğa doğrudan oturulur; lobide izin gerekmez.
+
+Oyun **başladıktan** sonra masaya oturmak — ister yeni gelen olsun, ister
+ayrılıp dönen — **oda sahibinin onayına** bağlıdır. Boş koltuklara bot baktığı
+için oyun beklemez; seyirci çubuğunda o koltuk "**bot oynuyor**" diye görünür.
+
+- İsteği yapan "Oda sahibinin onayı bekleniyor" yazısını görür.
+- Oda sahibinin ekranının üstünde onay kutusu çıkar.
+- Sahip dışında kimse onaylayamaz.
+- İstek sahibi masadan ayrılırsa isteği de silinir.
+
+### 12.3 Yönetim devri ve masayı kapatma
+
+**"Masadan ayrıl"** — oda sahibi ayrılırsa yönetim **katılım sırasına** göre
+devredilir: masaya 2. giren devralır, o da ayrılırsa 3., sonra 4. Masada kimse
+kalmazsa en eski **seyirci** devralır. Oyun kapanmaz, devam eder.
+
+Yeni sahip bütün yetkileri alır: oturma isteklerini onaylar, masayı kapatabilir.
+
+**"Masayı Kapat"** — bu devretmez, **odayı tümden kapatır**. Herkes düşer.
+Yalnız oda sahibi yapabilir.
+
+### 12.4 Oda kodu
+
+Oyun ekranının üst çubuğunda **"ZXCV adlı oda"** rozeti durur. Masaya birini
+çağırmak için lobiye dönmek gerekmez; rozete dokununca kod panoya kopyalanır.
+
+### 12.5 Oda ömrü
+
 - Masadaki herkes 5 dakika uğramazsa oda kendiliğinden kapanır.
 
 ---
 
-## 12.2 Kayıt defteri ve adlar
+## 12.6 Kayıt defteri ve adlar
 
 Alttaki kayıt masanın **ortak defteridir**; orada gizli bilgi durmaz.
 

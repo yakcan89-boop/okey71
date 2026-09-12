@@ -527,9 +527,11 @@
     if (!v.started) { lob.style.display = ''; showWaiting(v); return; }
     if (!STARTED) { STARTED = true; bind(); }
     lob.style.display = 'none';
+    odaRozeti();
     apply(v);
     checkLeaveButton(true);
     seyirciCubugu(v);
+    istekKutusu(v);
     if (v.ask) showAsk(v.ask);
     else if (v.next) showNext(v.next);
   }
@@ -572,6 +574,81 @@
     });
     const a = document.getElementById('lbAyril');
     if (a) a.onclick = () => ayril(false);
+  }
+
+  /* Oyun içinde oda kodu görünsün — masaya birini çağırmak için lobiye
+     dönmek gerekmesin. Dokununca kod panoya kopyalanır. */
+  function odaRozeti() {
+    const e = document.getElementById('pOda');
+    if (!e || !CODE) return;
+    e.innerHTML = '<b>' + CODE + '</b> adlı oda';
+    e.classList.remove('hidden');
+    e.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(CODE);
+        flash(CODE + ' kopyalandı.');
+      } catch (err) {
+        flash('Oda kodu: ' + CODE);
+      }
+    };
+  }
+
+  /* ---------- oturma istekleri ----------
+     Oyun başladıktan sonra masaya oturmak oda sahibinin onayına bağlı.
+     Sahip burada "Otur" / "Alma" der; isteği yapan da beklediğini görür. */
+  function istekKutusu(v) {
+    let k = document.getElementById('istekKutusu');
+    const istekler = v.istekler || [];
+    const gerek = (v.owner && istekler.length) || v.bekliyor;
+    if (!gerek) { if (k) k.remove(); return; }
+    if (!k) {
+      k = document.createElement('div');
+      k.id = 'istekKutusu';
+      k.style.cssText = 'position:fixed;left:8px;right:8px;top:8px;z-index:200;padding:9px 11px;' +
+        'border-radius:10px;background:rgba(10,32,52,.97);border:1px solid rgba(245,195,59,.55);' +
+        'font:700 12.5px/1.35 "Trebuchet MS",Arial,sans-serif;color:#eaf6ff;' +
+        'box-shadow:0 6px 22px rgba(0,0,0,.45)';
+      document.body.appendChild(k);
+    }
+    k.innerHTML = '';
+
+    if (v.bekliyor) {
+      const s1 = document.createElement('div');
+      s1.style.cssText = 'font-weight:400;opacity:.85';
+      s1.innerHTML = 'Masaya oturmak istedin — <b>oda sahibinin onayı bekleniyor.</b>';
+      k.appendChild(s1);
+      return;
+    }
+
+    const b1 = document.createElement('div');
+    b1.style.cssText = 'margin-bottom:6px;font-size:11px;letter-spacing:.12em;' +
+      'text-transform:uppercase;opacity:.65';
+    b1.textContent = 'Masaya oturmak isteyen';
+    k.appendChild(b1);
+
+    istekler.forEach(it => {
+      const satir = document.createElement('div');
+      satir.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 0';
+      const ad = document.createElement('span');
+      ad.style.cssText = 'flex:1;text-align:left';
+      ad.innerHTML = '<b>' + it.ad + '</b>' +
+        (it.seat != null ? ' <small style="opacity:.6">' + (it.seat + 1) + '. koltuk</small>' : '');
+      satir.appendChild(ad);
+      const dgm = (metin, kabul, renk) => {
+        const b = document.createElement('button');
+        b.textContent = metin;
+        b.style.cssText = 'font:700 12px/1.1 inherit;padding:6px 10px;border-radius:6px;cursor:pointer;' +
+          'border:1px solid rgba(255,255,255,.28);background:' + renk + ';color:#eaf6ff';
+        b.onclick = async () => {
+          const r = await post('/api/onay', { code: CODE, pid: PID, hedefPid: it.pid, kabul });
+          if (r && r.err) flash(r.err);
+        };
+        satir.appendChild(b);
+      };
+      dgm('Otursun', true, 'linear-gradient(180deg,#f5c33b,#a9761a)');
+      dgm('Alma', false, 'rgba(224,87,79,.55)');
+      k.appendChild(satir);
+    });
   }
 
   /* ---------- seyirci çubuğu ----------
@@ -617,10 +694,18 @@
       c.appendChild(b);
     };
 
-    (v.freeSeats || []).forEach(i => {
-      dgm((i + 1) + '. koltuğa otur', async () => {
+    if (v.bekliyor) {
+      const bk = document.createElement('span');
+      bk.style.cssText = 'font-weight:400;opacity:.75';
+      bk.textContent = 'Oturma isteğin oda sahibinin onayını bekliyor.';
+      c.appendChild(bk);
+    } else (v.freeSeats || []).forEach(i => {
+      // Oyun sürerken boş koltuklara bot bakıyor; oturmak izne bağlı.
+      const bot = (v.botKoltuklar || []).indexOf(i) >= 0;
+      dgm((i + 1) + '. koltuk' + (bot ? ' (bot oynuyor) — otur' : 'a otur'), async () => {
         const r = await post('/api/seat', { code: CODE, pid: PID, seat: i });
         if (r && r.err) flash(r.err);
+        else if (r && r.bekliyor) flash('Oda sahibinin onayı bekleniyor.');
       }, 'linear-gradient(180deg,#f5c33b,#a9761a)');
     });
     if (!(v.freeSeats || []).length) {

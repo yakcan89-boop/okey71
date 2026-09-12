@@ -58,6 +58,10 @@ function makeRoom(teams) {
     // taşları ve skorları görürler; kimsenin elini görmezler.
     watchers: [],                      // {pid, name, lastSeen}
     owner: null,                       // oda sahibinin pid'i (koltuk değişse de sabit)
+    sira: 0,                           // katılım sırası sayacı (sahiplik devri buna bakar)
+    // Oyun BAŞLADIKTAN sonra masaya oturmak oda sahibinin onayına bağlıdır.
+    // {pid, ad, seat, t} — seat: istenen koltuk (null = fark etmez)
+    istekler: [],
     version: 0,
     waiters: [],                       // bekleyen uzun-yoklama istekleri
     log: [],
@@ -174,6 +178,36 @@ function makeRoom(teams) {
   return room;
 }
 
+/* Oturma isteği kaydeder. Aynı kişi iki kez sıraya girmez. */
+function istekEkle(room, pid, ad, seat) {
+  const v = room.istekler.find(x => x.pid === pid);
+  if (v) { v.seat = seat; v.t = Date.now(); return v; }
+  const y = { pid, ad, seat, t: Date.now() };
+  room.istekler.push(y);
+  room.log.push({ m: `· ${ad} masaya oturmak istiyor — oda sahibinin onayı bekleniyor.`, t: Date.now() });
+  return y;
+}
+
+/* İsteği kabul et: kişiyi koltuğa oturt. */
+function istegiKabulEt(room, istek) {
+  let hedef = (istek.seat != null && istek.seat >= 0 && istek.seat < 4 && !room.seats[istek.seat])
+    ? istek.seat
+    : room.seats.findIndex(x => !x);
+  if (hedef < 0) return { err: 'Boş koltuk yok.' };
+  const wi = room.watchers.findIndex(w => w.pid === istek.pid);
+  const kisi = wi >= 0 ? room.watchers.splice(wi, 1)[0]
+                       : { pid: istek.pid, name: istek.ad, lastSeen: Date.now(), sira: ++room.sira };
+  kisi.lastSeen = Date.now();
+  room.seats[hedef] = kisi;
+  room.istekler = room.istekler.filter(x => x.pid !== istek.pid);
+  if (room.started) {
+    room.api.S.players[hedef].bot = false;
+    room.api.setNames(botAdlari(room));
+  }
+  room.log.push({ m: `· ${kisi.name} masaya oturdu (oda sahibi onayladı).`, t: Date.now() });
+  return { ok: true, seat: hedef };
+}
+
 function seatOf(room, pid) {
   return room.seats.findIndex(s => s && s.pid === pid);
 }
@@ -206,11 +240,17 @@ function watcherOf(room, pid) {
   return (room.watchers || []).findIndex(w => w && w.pid === pid);
 }
 // Oda sahibi masadan ayrılırsa yetkiyi masadaki başka bir insana devret.
+/* Sahiplik masaya KATILIM SIRASINA göre devredilir: ikinci giren, o da
+   ayrılırsa üçüncü... Koltuktakiler önce gelir; masada kimse kalmazsa
+   seyirciler arasından en eski giren devralır.
+   "Masayı Kapat" bundan ayrıdır — orada oda tümden kapanır. */
 function devretSahiplik(room, ayrilanPid) {
   if (room.owner !== ayrilanPid) return;
-  const yeni = room.seats.find(Boolean) || (room.watchers || [])[0];
+  const sirali = arr => arr.filter(Boolean).slice().sort((a, b) => (a.sira || 0) - (b.sira || 0));
+  const yeni = sirali(room.seats)[0] || sirali(room.watchers)[0];
   room.owner = yeni ? yeni.pid : null;
   if (yeni) room.log.push({ m: `· Masa sahipliği ${yeni.name} adlı oyuncuya geçti.`, t: Date.now() });
+  else room.log.push({ m: '· Masada kimse kalmadı.', t: Date.now() });
 }
 
 function closeRoom(room, sebep) {
@@ -232,10 +272,13 @@ function bakisFor(room, pid) {
   if (wi < 0) return null;
   room.watchers[wi].lastSeen = Date.now();
 
+  const benimIstek = room.istekler.find(x => x.pid === pid) || null;
+
   // Oyun başlamadıysa seyirci bekleme panelini görür.
   if (!room.started) {
     const v = viewFor(room, -1);
     v.seyirci = true;
+    v.bekliyor = !!benimIstek;
     return v;
   }
   // Oyun sürerken masa ÇİZİLİR. Ekranın çizilebilmesi için bir koltuk
@@ -248,6 +291,7 @@ function bakisFor(room, pid) {
   }).filter(Boolean);
   v.seat = 0;
   v.seyirci = true;
+  v.bekliyor = !!benimIstek;          // oturma isteğim onay bekliyor mu
   v.watcher = false;
   v.readOnly = true;
   v.owner = false;
@@ -270,6 +314,12 @@ function viewFor(room, seat) {
     seat,
     watcher: seat < 0,
     freeSeats: room.seats.map((x, i) => (x ? -1 : i)).filter(i => i >= 0),
+    // Boş koltuklara oyun sırasında BOT bakar; istemci "bot oynuyor" yazsın.
+    botKoltuklar: room.started
+      ? room.seats.map((x, i) => (x ? -1 : i)).filter(i => i >= 0) : [],
+    // Bekleyen oturma istekleri. Yalnız oda sahibi karar verir ama herkes görür.
+    istekler: room.istekler.map(x => ({ pid: x.pid, ad: x.ad, seat: x.seat })),
+
     watcherCount: (room.watchers || []).length,
     owner: !!(seat >= 0 && room.seats[seat] && room.seats[seat].pid === room.owner),
     seats: room.seats.map((s, i) => ({ name: s ? s.name : 'Bot ' + (i + 1), bot: !s })),
@@ -560,7 +610,7 @@ const server = http.createServer(async (req, res) => {
     if (!ad) return send(res, 400, { err: 'En az 2 harfli bir ad yaz.' });
     const room = makeRoom(!!d.teams);
     const pid = 'p' + (++nextRoom) + Math.random().toString(36).slice(2, 7);
-    room.seats[0] = { pid, name: ad, lastSeen: Date.now() };
+    room.seats[0] = { pid, name: ad, lastSeen: Date.now(), sira: ++room.sira };
     room.owner = pid;
     return send(res, 200, { code: room.code, pid, seat: 0 });
   }
@@ -592,28 +642,30 @@ const server = http.createServer(async (req, res) => {
 
     // Seyirci olarak katılmak isteyen: boş koltuk olsa da oturmaz
     if (rol === 'seyirci') {
-      room.watchers.push({ pid, name: ad, lastSeen: Date.now() });
+      room.watchers.push({ pid, name: ad, lastSeen: Date.now(), sira: ++room.sira });
       room.log.push({ m: `· ${ad} masayı izlemeye başladı.`, t: Date.now() });
       push(room);
       return send(res, 200, { code: room.code, pid, seat: -1, watcher: true, rol });
     }
 
     const seat = room.seats.findIndex(s => !s);
-    // Boş koltuk varsa otur — oyun başlamış olsa bile (o koltuğa bot bakıyordur).
-    // Boş koltuk yoksa masaya SEYİRCİ olarak katıl, biri ayrılınca oturursun.
-    if (seat >= 0) {
-      room.seats[seat] = { pid, name: ad, lastSeen: Date.now() };
-      if (room.started) {
-        room.api.S.players[seat].bot = false;
-        room.api.setNames(botAdlari(room));
-        room.log.push({ m: `· ${ad} boş koltuğa oturdu.`, t: Date.now() });
-      }
+
+    // Oyun BAŞLAMADIYSA boş koltuğa doğrudan oturulur — lobide izin gerekmez.
+    if (!room.started && seat >= 0) {
+      room.seats[seat] = { pid, name: ad, lastSeen: Date.now(), sira: ++room.sira };
       push(room);
       return send(res, 200, { code: room.code, pid, seat, watcher: false });
     }
-    room.watchers.push({ pid, name: ad, lastSeen: Date.now() });
+
+    // Oyun başladıysa: seyirci olarak girer, oturmak için ODA SAHİBİNİN
+    // onayı gerekir. Masadan kendi isteğiyle ayrılan biri de buradan döner.
+    room.watchers.push({ pid, name: ad, lastSeen: Date.now(), sira: ++room.sira });
+    istekEkle(room, pid, ad, seat >= 0 ? seat : null);
     push(room);
-    return send(res, 200, { code: room.code, pid, seat: -1, watcher: true });
+    return send(res, 200, {
+      code: room.code, pid, seat: -1, watcher: true,
+      bekliyor: true, mesaj: 'Oda sahibinin onayı bekleniyor.'
+    });
   }
 
   if (p === '/api/mode' && req.method === 'POST') {
@@ -646,6 +698,14 @@ const server = http.createServer(async (req, res) => {
     if (room.started && cur >= 0) {
       return send(res, 400, { err: 'Oyun başladı, koltuk değiştiremezsin.' });
     }
+    // Oyun başladıysa seyirci doğrudan oturamaz: oda sahibi onaylamalı.
+    if (room.started && cur < 0) {
+      const w = room.watchers[wi];
+      istekEkle(room, d.pid, w.name, hedef);
+      push(room);
+      return send(res, 200, { ok: true, bekliyor: true,
+                              mesaj: 'Oda sahibinin onayı bekleniyor.' });
+    }
     if (cur >= 0) {
       room.seats[hedef] = room.seats[cur];
       room.seats[cur] = null;
@@ -672,6 +732,27 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, { ok: true });
   }
 
+  // Oda sahibi oturma isteğini onaylar ya da reddeder.
+  if (p === '/api/onay' && req.method === 'POST') {
+    const d = await readBody(req);
+    const room = rooms.get(String(d.code || '').toUpperCase());
+    if (!room) return send(res, 404, { err: 'Oda yok.' });
+    if (d.pid !== room.owner) return send(res, 403, { err: 'Bunu oda sahibi yapar.' });
+    const istek = room.istekler.find(x => x.pid === d.hedefPid);
+    if (!istek) return send(res, 404, { err: 'İstek bulunamadı.' });
+
+    if (d.kabul === false) {
+      room.istekler = room.istekler.filter(x => x.pid !== istek.pid);
+      room.log.push({ m: `· ${istek.ad} masaya alınmadı.`, t: Date.now() });
+      push(room);
+      return send(res, 200, { ok: true, kabul: false });
+    }
+    const r = istegiKabulEt(room, istek);
+    push(room);
+    if (r.err) return send(res, 400, r);
+    return send(res, 200, r);
+  }
+
   if (p === '/api/leave' && req.method === 'POST') {
     const d = await readBody(req);
     const room = rooms.get(String(d.code || '').toUpperCase());
@@ -679,6 +760,7 @@ const server = http.createServer(async (req, res) => {
     const seat = seatOf(room, d.pid);
     const wi = watcherOf(room, d.pid);
     if (seat < 0 && wi < 0) return send(res, 403, { err: 'Masada değilsin.' });
+    room.istekler = room.istekler.filter(x => x.pid !== d.pid);
     if (wi >= 0) {                               // seyirci sessizce ayrılır
       room.watchers.splice(wi, 1);
       push(room);
