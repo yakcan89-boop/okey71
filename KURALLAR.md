@@ -127,7 +127,12 @@ Yerden alınan taş aynı turda geri atılamaz.
 - Bir oyuncu "çift" derse el **çifte döner**: artık ya elden bitilecek, ya 101 üstü
   açılacak, ya da çiftle açılacak.
 - Çift diyen oyuncu **düz açamaz**, yalnız çiftle açar.
-- Çifte giden oyuncunun attığı taşı **yalnız çifte giden başka bir oyuncu** alabilir.
+- Çifte giden oyuncunun attığı taşı kim alabilir:
+  - **Zaten çifte giden** oyuncu alabilir.
+  - **Henüz açmamış** oyuncu da alabilir. Aldığı anda çift SAYILMAZ — taşı
+    **geri bırakabilir**, hiçbir şey olmaz. Çift olması ancak o taşla açmayıp
+    **taş atarsa** gerçekleşir.
+  - **Açmış düz** oyuncu **alamaz**: artık çifte dönemez.
 
 ### 5.2 Çift açış eşiği
 
@@ -274,7 +279,14 @@ bir çift varken eşini atan 71 yazar (§8).
 **Okey takası bir işleme sayılır.** Çift açan oyuncu için bu, o turdaki tek
 hakkını harcar (bkz. §5.5).
 
-Aldığın okey el sonunda elinde kalırsa **71 ceza** yazarsın (eşin bitirdiyse yazmazsın).
+El sonunda elinde **okey** kalırsa **71 ceza** yazarsın. Bu, yerden aldığın okey
+için de sana dağıtılan okey için de geçerlidir; açmış olman fark etmez.
+
+Muaf olanlar: **bitiren** oyuncu ve **eşli oyunda bitirenin eşi**. Tek kişilik
+oyunda muafiyet yoktur.
+
+Not: ★ işaretli **sahte okey** bu cezaya girmez — motorda o joker değil,
+göstergenin bir fazlası değerinde sıradan bir taştır.
 
 ---
 
@@ -379,14 +391,14 @@ Hepsi **71 puan**tır ve o elin puanına eklenir:
 
 | Ne yaptın | Ceza |
 |---|---|
-| Yerdeki perlere **işleyen (işlek) taş** attın | 71 — üstelik o taşı kimse alamaz, ölür |
+| Yerdeki perlere **işleyen (işlek) taş** attın | 71 — o taş **ölür**, kimse alamaz |
 | ↳ *yerdeki bir okeyin yerine geçen taş da işlektir* | ÇİFT perdeki okey de sayılır |
 | ↳ *ama o taşla el bitiyorsa* | **ceza yok, taş da ölmez** |
 | Yerden aldığın taşı açışında/o turda kullanmadın | 71 |
 | "Alsın" izni alıp o taşı yere indirmedin | 71 |
 | Yerden taş topladın ("Taşı topla") ve taş attın | 71 |
 | Geri aldığın işlenmiş taşı aynı tur yeniden indirmedin | 71 |
-| Yerden aldığın okey elinde kaldı | 71 |
+| **Elinde okey kaldı** (yerden alınmış da olsa, sana dağıtılmış da olsa) | 71 |
 
 Bir turda birden fazla ceza birikebilir.
 
@@ -546,6 +558,9 @@ Kodda katlama üç alanla izlenir. Yeni kod yazarken bunlara dikkat:
 | `S.pairsMax` | Masadaki en yüksek **çift açışı** | Yalnız `p.openPairs`'ten beslenir |
 
 **Kural:** `S.topOpen` ve `S.pairsMax`'a açış dışında hiçbir yerden yazılmaz.
+
+Ekranda da **açış** gösterilir: oyuncu rozetinde "açtı 71" yazar, yerdeki
+toplam değil. Kendi rozetinde ikisi ayrıdır: "Açışın 71 · yerde 80".
 
 ### 13.1 Çarpanlar tek yerde
 

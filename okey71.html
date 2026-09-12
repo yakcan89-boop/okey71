@@ -956,9 +956,12 @@ function endHand(winner,note){
     let pts;
     let how='';
     const sameTeam = S.teams && winner!=null && ((p.i%2)===(winner%2));
-    if(p.okeyDebt && p.i!==winner && !sameTeam && p.hand.some(t=>t.id===p.okeyDebt)){
+    // Elde kalan OKEY 71 yazdırır — yerden aldığın da olsa, sana dağıtılan da
+    // olsa. Bitiren ve (eşli oyunda) bitirenin eşi bundan muaftır.
+    const eldeOkey = p.hand.filter(isWild).length;
+    if(eldeOkey && p.i!==winner && !sameTeam){
       p.fine+=71;
-      log(`${adOf(p.i)===('Sen')?'Aldığın':(adOf(p.i)+' aldığı')} okey elinde kaldı — 71 ceza.`,true);
+      log(`${adOf(p.i)} okeyi elinde tuttu — 71 ceza.`,true);
     }
     if(p.i===winner){ pts=0; how='bitirdi'; }
     else if(sameTeam){ pts=0; how='eşi bitirdi'; }
@@ -1308,7 +1311,13 @@ function botDraw(p,next){
   if(order==='cek') return fromDeck();
   // Çift dedikten sonra "topla" denince atılan taşı alır, desteye gitmez.
   if(order==='topla'&&alabilir&&(!p.opened||p.pairs)) return grab();
-  if(prev.pairs&&!p.pairs) return fromDeck();
+  if(prev.pairs&&!p.pairs){
+    // Açmamış bot da alabilir — ama ancak taş işine yarıyorsa. Çift olması
+    // taşı atarken doğar (grabOnly mustOpen koyuyor), alır almaz değil.
+    if(!p.opened && !isWild(top) && pairCount(p.hand.concat([top]))>pairCount(p.hand))
+      return grab();
+    return fromDeck();
+  }
 
   if(p.opened){
     if(p.pairs) return pairCount(p.hand.concat([top]))>pairCount(p.hand) ? grab() : fromDeck();
@@ -1639,8 +1648,12 @@ function doTake(){
     render();
   };
 
-  if(prev.pairs&&!me().pairs){
-    log(`· ${prev.name} çifte gidiyor — attığı taşı sadece çifte giden alabilir.`);
+  // Açmış DÜZ oyuncu çifte gidenin taşını alamaz: artık çifte dönemez.
+  // Açmamış oyuncu ALABİLİR. Alır almaz çift SAYILMAZ — taşı geri
+  // bırakabilir. Çift olması ancak o taşla açmayıp taş atarsa gerçekleşir
+  // (aşağıdaki "açacaksan yere indir, yoksa çift sayılırsın" yolu).
+  if(prev.pairs&&!me().pairs&&me().opened){
+    log(`· ${NAMES[prev.i]} çifte gidiyor — açmış oyuncu onun taşını alamaz.`);
     return;
   }
   // AÇMIŞ oyuncu — düz de olsa çift de olsa — aldığı taşı o tur yere
@@ -2535,7 +2548,8 @@ function nearestSlot(x,y){
 
 function openTag(p){
   if(p.opened&&p.pairs) return `<span class="tag ci">${p.openPairs} çift</span>`;
-  if(p.opened) return `<span class="tag">açtı ${p.openPoints}</span>`;
+  // AÇIŞ yazılır, yerdeki toplam değil: katlama açış anındaki sayıdır (§4.2).
+  if(p.opened) return `<span class="tag">açtı ${p.acilis||p.openPoints}</span>`;
   if(p.pairs) return '<span class="tag ci">çift dedi</span>';
   return '';
 }
@@ -2620,7 +2634,13 @@ function render(){
 
   const pm=$('pMe');
   if(me().opened&&me().pairs){ pm.className='pill hot'; pm.textContent=`${me().openPairs} çift açtın`; }
-  else if(me().opened){ pm.className='pill gold'; pm.textContent=`Açtın ${me().openPoints}`; }
+  else if(me().opened){
+    pm.className='pill gold';
+    const ac=me().acilis||me().openPoints;
+    // Açış sabit; yerdeki toplam ondan büyükse ayrıca gösterilir.
+    pm.textContent = me().openPoints>ac ? `Açışın ${ac} · yerde ${me().openPoints}`
+                                        : `Açışın ${ac}`;
+  }
   else if(me().pairs){ pm.className='pill hot'; pm.textContent='Çift dedin'; }
   else { pm.className='pill off'; pm.textContent='Açmadın'; }
 
@@ -3117,7 +3137,7 @@ const __api = {
   /* hamleler */
   doDeck, doTake, doUndo, doCollect, doJoin, doProcess, processInto,
   doDoubleOkey, doPut, doOpen, doOpenPairs, doDiscard, ciftIndir, ciftIndirIds, tableHasPairs,
-  setEmir, mateOf, EMIRLER, KAT, autoPlay, doUndo, bitirenTakozunuCiz,
+  setEmir, mateOf, EMIRLER, KAT, autoPlay, doUndo, bitirenTakozunuCiz, openTag,
   doOkey(){ if(autoOkey(S.players[SELF])) render(); }
 };
 window.__api = __api;
