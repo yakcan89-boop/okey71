@@ -102,9 +102,15 @@ function makeRoom(teams) {
   // kalanlar "genel" metnini görür. Desteden çekilen taşın adı bu yolla gizli
   // kalıyor — eskiden ortak kayda düşüp herkese görünüyordu.
   ctx.log = (m, big, ozel) => {
+    const metin = String(m);
+    // "·" ile başlayan satırlar oyuncuya özel uyarılardır ("Yerden aldığın
+    // Kırmızı 5'i indirmelisin" gibi) ve taş adı içerebilir. Bunlar masanın
+    // ortak defterine düşerse herkes elini okur; yalnız hamleyi yapan görsün.
+    const kisisel = metin.charAt(0) === '·';
+    const aktif = room.api ? room.api.self : null;
     room.log.push({
-      m: String(m), big: !!big, t: Date.now(),
-      seat: ozel && ozel.seat != null ? ozel.seat : null,
+      m: metin, big: !!big, t: Date.now(),
+      seat: ozel && ozel.seat != null ? ozel.seat : (kisisel ? aktif : null),
       genel: ozel && ozel.genel ? String(ozel.genel) : null
     });
     if (room.log.length > 200) room.log.shift();

@@ -438,6 +438,11 @@ const needPairs=()=>Math.min(7,Math.max(5,S.pairsMax+1));
 const tileName=t=>t.fake?'sahte okey':`${CN[t.c]} ${t.n}`;
 const mateOf=i=>(i+2)%4;
 
+/* Ekranda gösterilecek ad. Tek kişilik oyunda kendine "Sen" denir; masada
+   insan varsa herkes ADIYLA anılır — skor tablosunda da, eş başlıklarında da.
+   Böylece masadaki herkes aynı metni görür. */
+const adOf=i=>(!window.__NET__ && !S.seyirci && i===SELF) ? 'Sen' : NAMES[i];
+
 /* ---------- el sonu çarpanları ----------
    Masanızda başka türlü oynanıyorsa YALNIZ bu sayıları değiştirin;
    hesabın geri kalanı buradan besleniyor.
@@ -952,7 +957,7 @@ function endHand(winner,note){
     const sameTeam = S.teams && winner!=null && ((p.i%2)===(winner%2));
     if(p.okeyDebt && p.i!==winner && !sameTeam && p.hand.some(t=>t.id===p.okeyDebt)){
       p.fine+=71;
-      log(`${p.i===SELF?'Aldığın':(p.name+' aldığı')} okey elinde kaldı — 71 ceza.`,true);
+      log(`${adOf(p.i)===('Sen')?'Aldığın':(adOf(p.i)+' aldığı')} okey elinde kaldı — 71 ceza.`,true);
     }
     if(p.i===winner){ pts=0; how='bitirdi'; }
     else if(sameTeam){ pts=0; how='eşi bitirdi'; }
@@ -1275,7 +1280,7 @@ function botDraw(p,next){
     const t=drawPile();
     if(t){
       p.hand.push(t);
-      log(`${p.name} desteden bir taş çekti.`);
+      log(`${NAMES[p.i]} desteden bir taş çekti.`);
       next();
     }
     else endHand(null,'Deste bitti.');
@@ -1598,7 +1603,9 @@ function doDeck(){
   me().retracted=false; me().layNow=false; me().procLog=[]; me().mustRelay=null;
   S.lastDraw={from:'deck',tile:t}; snapTurn();
   bumpTimer();
-  log(`Desteden ${tileName(t)} çektin.`,false);
+  // Çekilen taşın adı kayda YAZILMAZ — ne sana ne başkasına. Taş zaten
+  // takozunda görünüyor; kayıt masanın ortak defteri, orada gizli bilgi durmaz.
+  log(`${NAMES[SELF]} desteden bir taş çekti.`,false);
   render();
 }
 
@@ -2317,7 +2324,7 @@ const $=id=>document.getElementById(id);
 /* El sonunda takoza bitirenin perlerini dizer. Gruplar arasında bir boşluk
    bırakılır, her grubun altına puanı ya da "çift" etiketi yazılır. */
 function bitirenTakozunuCiz(bt){
-  const ad = (!S.seyirci && bt.seat===SELF) ? 'Sen' : NAMES[bt.seat];
+  const ad = adOf(bt.seat);
   const kutu = $('handinfo');
   if(kutu){
     kutu.innerHTML='';
@@ -2574,7 +2581,7 @@ function render(){
 
   const cp=$('pCift');
   const decl=S.players.filter(x=>x.pairs);
-  if(decl.length){ cp.className='pill hot'; cp.textContent='ÇİFT: '+decl.map(x=>(!S.seyirci&&x.i===SELF)?'Sen':x.name).join(', '); }
+  if(decl.length){ cp.className='pill hot'; cp.textContent='ÇİFT: '+decl.map(x=>adOf(x.i)).join(', '); }
   else { cp.className='pill off'; cp.textContent='Çift yok'; }
 
   const zones={};
@@ -2592,7 +2599,7 @@ function render(){
   S.players.forEach((_,i)=>{
     if(!zones[i]) return;
     const l=document.createElement('div'); l.className='zlabel';
-    l.textContent = (!S.seyirci&&i===SELF) ? 'Sen' : NAMES[i];
+    l.textContent = adOf(i);
     zones[i].insertBefore(l, zones[i].firstChild);
   });
 
@@ -2835,7 +2842,7 @@ function askVeil(title,html,buttons,opts){
 function scoreTableHTML(){
   const takim = S.teams;
   const cols = takim ? [[0,2],[1,3]] : [[0],[1],[2],[3]];
-  const baslik = g => g.map(i=>((!S.seyirci&&i===SELF)?'Sen':NAMES[i])).join(' + ');
+  const baslik = g => g.map(adOf).join(' + ');
   const xTop   = g => g.reduce((a,i)=>a+S.xm[i],0);
   const topTop = g => g.reduce((a,i)=>a+S.totals[i],0);
   const netTop = g => g.reduce((a,i)=>a+netOf(i),0);
@@ -2960,7 +2967,7 @@ function rollDice(cb){
   let vals=[0,0,0,0];
   const paint=note=>{
     box.innerHTML='<div style="display:flex;justify-content:space-around;margin:10px 0">'+[0,1,2,3].map(i=>
-      `<div style="display:flex;flex-direction:column;align-items:center"><span>${i===0?'Sen':NAMES[i]}</span><b style="font-size:36px;color:#fff">${vals[i]?DICE[vals[i]-1]:'?'}</b></div>`
+      `<div style="display:flex;flex-direction:column;align-items:center"><span>${adOf(i)}</span><b style="font-size:36px;color:#fff">${vals[i]?DICE[vals[i]-1]:'?'}</b></div>`
     ).join('')+'</div>'+(note||'');
   };
   paint();
@@ -3035,7 +3042,14 @@ const __api = {
   S,
   get self(){ return SELF; },
   setSelf(i){ SELF = i|0; },
-  setNames(arr){ for(let i=0;i<4;i++) if(arr&&arr[i]) NAMES[i]=arr[i]; },
+  setNames(arr){
+    for(let i=0;i<4;i++) if(arr&&arr[i]){
+      NAMES[i]=arr[i];
+      // Masa kurulduktan sonra ad değişirse oyuncunun adı da güncellensin;
+      // yoksa kayıtta eski/boş ad görünüyordu.
+      if(S.players&&S.players[i]) S.players[i].name=arr[i];
+    }
+  },
   /* yardımcılar — net.js kullanıyor */
   isWild, isLive, tileName, handValue, threshold, needPairs, ciftOkeyVar,
   validateMeld, validatePair, rackBlocks, okeyCandidates,

@@ -480,6 +480,25 @@ Masada oturmayan herkes **seyircidir**. Ayrı bir "yancı" rolü yoktur.
 
 ---
 
+## 12.2 Kayıt defteri ve adlar
+
+Alttaki kayıt masanın **ortak defteridir**; orada gizli bilgi durmaz.
+
+- **Çekilen taşın adı hiç yazılmaz** — ne çekene ne başkasına. Kayıt yalnız
+  "*Ahmet* desteden bir taş çekti" der. Taş zaten kendi takozunda görünür.
+- Yerden alınan taş herkesin gözü önünde alındığı için adıyla yazılabilir.
+- "·" ile başlayan satırlar **kişisel uyarılardır** ("Yerden aldığın Kırmızı 5'i
+  indirmelisin" gibi) ve yalnız o oyuncuya gider.
+
+Masada insan varsa **kimseye "Sen" denmez**; herkes adıyla anılır — kayıtta,
+skor tablosunda, eş başlıklarında, zar ekranında. Eşli oyunda başlık
+"Ahmet + Veli" olur, "Sen + Ahmet" değil. Böylece masadaki herkes aynı metni
+görür ve sonradan bakınca kimin ne yaptığı karışmaz.
+
+Tek kişilik oyunda kendine "Sen" denmeye devam eder.
+
+---
+
 ## 13. Uygulama notu — katlama değişkenleri
 
 Kodda katlama üç alanla izlenir. Yeni kod yazarken bunlara dikkat:

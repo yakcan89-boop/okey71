@@ -350,7 +350,8 @@
     S.players = v.players.map(p => Object.assign({ bot: p.i !== v.seat }, p));
     // Seyirci hiçbir koltuğun sahibi değil; 0 numara yalnız çizim çapası.
     S.seyirci = !!v.seyirci;
-    api.setNames(v.players.map((p, i) => ((!v.seyirci && i === v.seat) ? 'Sen' : p.name)));
+    // Masada insan var: herkes adıyla anılır, kimseye "Sen" denmez.
+    api.setNames(v.players.map(p => p.name));
     // S.snap sunucuda tutuluyor; buraya sadece "geri toplama hakkın var mı"
     // bilgisi geliyor. Yerel bir yer tutucu koyuyoruz ki düğme açılsın.
     S.busy = false; S.staging = []; S.snap = v.snap ? { net: true } : null;
