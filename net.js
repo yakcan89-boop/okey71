@@ -836,7 +836,22 @@
       act('process', { ids: [] });          // sebebini motor söylesin
     });
     on('btnPut',     () => act('put',  { groups: groupsFromRack(false) }));
-    on('btnOpen',    () => act('open', { groups: groupsFromRack(true) }));
+
+    // SERİ AÇ — yalnız takozdaki serileri yollar, çiftlere dokunmaz.
+    on('btnOpen', () => {
+      const seri = api.rackBlocks().melds.map(g => g.tiles.map(t => t.id));
+      if (!seri.length) { flash('Takozda yan yana duran seri yok — önce “Seriye çevir” de.'); return; }
+      act('open', { groups: seri });
+    });
+
+    // ÇİFT AÇ — açmadıysan çiftle açar, açtıysan takozdaki çiftleri indirir.
+    on('btnOpenP', () => {
+      const cf = api.rackBlocks().pairs.map(g => g.tiles.map(t => t.id));
+      if (!cf.length) { flash('Takozda yan yana duran çift yok — önce “Çift diz” de.'); return; }
+      const ben = api.S.players[SEAT];
+      if (ben && ben.opened) act('ciftindir', { groups: cf });
+      else act('acikcift', { groups: cf });
+    });
     on('btnDiscard', () => {
       // son iki taş okeyse "At" düğmesi çift okey atışına döner
       const el = (api.S.players[SEAT] || {}).hand || [];

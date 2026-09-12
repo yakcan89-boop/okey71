@@ -387,7 +387,8 @@ button.red{background:linear-gradient(180deg,#e0574f,#a83028);border-color:#f09a
     <button id="btnJoin">Yan yana getir</button>
     <button id="btnSort">Seriye çevir</button>
     <button id="btnSortP">Çift diz</button>
-    <button id="btnOpen" class="gold">Yere indir</button>
+    <button id="btnOpen" class="gold">Seri Aç</button>
+    <button id="btnOpenP" class="gold">Çift Aç</button>
     <span class="bosluk"></span>
 
     <button id="btnPut">Yere koy</button>
@@ -1633,7 +1634,8 @@ function doTake(){
     if(!me().opened&&!me().pairs) me().mustOpen=true;   
     me().pendingLay = (prev.opened&&!me().opened) ? t.id : null;   
     bumpTimer();
-    log(`Yerden ${tileName(t)} aldın${note?' — '+note:''}.`);
+    log(`${NAMES[SELF]} yerden ${tileName(t)} aldı.`);
+    if(note) log(`· ${note}.`);
     render();
   };
 
@@ -1681,7 +1683,7 @@ function doCollect(){
     me().procMap[last.key]=Math.max(0,(me().procMap[last.key]||1)-1);
     me().proc=Math.max(0,me().proc-1);
     me().mustRelay=last.tileId;
-    log('Son işlediğin taşı geri aldın — bu tur mutlaka yeniden yere indirmelisin.',true);
+    log('· Son işlediğin taşı geri aldın — bu tur mutlaka yeniden yere indirmelisin.',true);
     render(); return;
   }
   if(!S.snap) return;
@@ -1700,7 +1702,7 @@ function doCollect(){
   S.staging=[]; S.selected.clear();
   me().mustRelay=null;
   me().openedNow=false; me().retracted=true;
-  log('Yerdeki taşlarını geri topladın — taş atınca 71 ceza yazılacak.',true);
+  log(`${NAMES[SELF]} yerdeki taşlarını geri topladı.`,true);
   render();
 }
 
@@ -1714,9 +1716,9 @@ function doUndo(){
   me().hand.splice(i,1);
   if(d.from==='deck') S.center.push(d.tile);
   else S.players[d.owner].discards.push(d.tile);
-  if(d.declared){ me().pairs=false; me().mustOpen=false; if(d.first) S.doubled=false; log('Çift kararını da geri aldın.'); }
+  if(d.declared){ me().pairs=false; me().mustOpen=false; if(d.first) S.doubled=false; log(`${NAMES[SELF]} çift kararını geri aldı.`); }
   S.lastDraw=null; S.phase='draw'; me().mustOpen=false; me().pendingLay=null;
-  log(`${tileName(d.tile)} geri bıraktın.`);
+  log(`${NAMES[SELF]} ${tileName(d.tile)} taşını geri bıraktı.`);
   render();
 }
 
@@ -1768,13 +1770,16 @@ function elden2(){
   return false;
 }
 
-function stageFromRack(finish){
+function stageFromRack(finish,zorla){
   const b=rackBlocks();
   const meldTot=b.melds.reduce((a,g)=>a+g.points,0);
   const meldTiles=b.melds.reduce((a,g)=>a+g.tiles.length,0);
   const pairTiles=b.pairs.reduce((a,g)=>a+g.tiles.length,0);
   let use;
-  if(me().pairs) use=b.pairs;
+  // zorla: 'seri' ya da 'cift' — oyuncu düğmeyle açıkça seçtiyse tahmin yok.
+  if(zorla==='cift') use=b.pairs;
+  else if(zorla==='seri') use=b.melds;
+  else if(me().pairs) use=b.pairs;
   else if(finish) use = pairTiles>meldTiles ? b.pairs : b.melds;
   else if(meldTot>=threshold()) use=b.melds;
   else if(b.pairs.length>=needPairs()) use=b.pairs;
@@ -1782,7 +1787,7 @@ function stageFromRack(finish){
   // Seriyle AÇMIŞ oyuncu: yerde çift açan varsa takozdaki çiftlerini de
   // yere indirebilir. Bunun açış eşiğiyle ilgisi yoktur, açıştan sonraki
   // sıradan bir hamledir — bu yüzden eşik dallarının dışında ele alınıyor.
-  if(!me().pairs && me().opened && !me().barajYok && !finish
+  if(!zorla && !me().pairs && me().opened && !me().barajYok && !finish
      && tableHasPairs() && b.pairs.length && use!==b.pairs){
     use = use.concat(b.pairs);
   }
@@ -1821,7 +1826,7 @@ function applyOpen(finish){
     me().retracted=false;
     S.pairsMax=Math.max(S.pairsMax,n);
     S.staging=[]; layCheck(me());
-    log(`${n} çiftle açtın.`,true); render();
+    log(`${NAMES[SELF]} ${n} çiftle açtı.`,true); render();
     if(n>=7&&!finish){ endHand(SELF,'7 çift yaptın.'); }
     return true;
   }
@@ -1848,8 +1853,8 @@ function applyOpen(finish){
   }
   layCheck(me());
   if(barajAltinda)
-    log(`Barajı geçemedin — en az ${th} gerekiyor, ${tot} indirdin. Tamamla ya da “Taşı topla” de.`,true);
-  else log(finish?'Elden bitiriyorsun — son taşı at.':`${tot} puanla açtın — baraj ${tot+1}.`,true);
+    log(`· Barajı geçemedin — en az ${th} gerekiyor, ${tot} indirdin. Tamamla ya da “Taşı topla” de.`,true);
+  else log(finish?'· Elden bitiriyorsun — son taşı at.':`${NAMES[SELF]} ${tot} puanla açtı — baraj ${tot+1}.`,true);
   okeyHatirlat();
   render();
   return true;
@@ -1861,7 +1866,18 @@ function blockedByPairs(prev){
   S.askSeat=SELF;
   askVeil('Çift dedi',
     `<div>${prev.name} <b>çift dedi</b> — attığı taşı düz açışta kullanamazsın.<br><br>Taşı geri bırakıp ortadan çekebilirsin, ya da sen de çifte dönebilirsin.</div>`,
-    [ {t:'Taşı geri bırak', cls:'gold', fn:()=>{ doUndo(); log('Taşı geri bıraktın — ortadan çek.',true); }},
+    [ {t:'Taşı geri bırak', cls:'gold', fn:()=>{
+        doUndo();
+        // doUndo bazı durumlarda sessizce başarısız olabiliyordu (taş elde
+        // kalıyor, perde de kapanıyordu) ve masa kilitleniyordu. Başaramazsa
+        // perdeyi yeniden aç: oyuncunun elinde her zaman geçerli bir çıkış olsun.
+        if(S.lastDraw){
+          log('· Taş geri bırakılamadı — ya yere indir ya da çiftle devam et.',true);
+          blockedByPairs(prev);
+          return;
+        }
+        log('· Taşı geri bıraktın — ortadan çek.',true);
+      }},
       {t:'Çiftle devam et', cls:'red', fn:()=>{ declarePairs(me()); me().mustOpen=false; sortPairs(me()); render(); }} ]);
 }
 
@@ -1887,11 +1903,36 @@ function withPairRight(fn,inecek){
   fn();
 }
 
-function doOpen(){
+/* ÇİFT AÇ — tek düğme, iki iş:
+   - henüz açmadıysan takozdaki çiftlerle AÇAR
+   - açtıysan takozdaki çiftleri yere İNDİRİR (çift işleme)
+   Böylece "elimde hem 71 sayı hem 5 çift var" durumunda oyun neyi
+   isteyeceğini tahmin etmez; sen söylersin. */
+function doOpenPairs(){
+  if(!myTurn()||S.phase!=='act') return;
+  const b=rackBlocks();
+  if(me().opened){
+    if(!b.pairs.length){ log('· Takozda yan yana duran çift yok — önce “Çift diz” de.'); return; }
+    ciftIndir(b.pairs.map(g=>g.tiles));
+    return;
+  }
+  if(!S.staging.length && !stageFromRack(elden2(),'cift')){
+    log('· Takozda yan yana duran çift yok — önce “Çift diz” de.'); return;
+  }
+  if(!S.staging.every(g=>g.pair)){
+    log('· “Çift Aç” yalnız çift indirir. Seri için “Seri Aç” de.'); return;
+  }
+  doOpen();        // gerisi ortak: elden bitiş, alınan taş borcu, çift hakkı
+}
+
+function doOpen(zorla){
   if(!myTurn()||S.phase!=='act'||me().opened) return;
   const eldenAdayi = elden2();
-  if(!S.staging.length&&!stageFromRack(eldenAdayi)){
-    log('· Takozda geçerli bir grup yok — taşları yan yana diz ya da per oluştur.');
+  if(!S.staging.length&&!stageFromRack(eldenAdayi,zorla)){
+    if(zorla==='seri')
+      log('· Takozda yan yana duran seri yok — önce “Seriye çevir” de.');
+    else
+      log('· Takozda geçerli bir grup yok — taşları yan yana diz ya da per oluştur.');
     return;
   }
   const kalan=me().hand.length;
@@ -1950,7 +1991,7 @@ function doPut_(){
       me().barajYok=false; me().retracted=false;
       me().acilis=me().openPoints;
       S.topOpen=Math.max(S.topOpen,me().openPoints);
-      log(`Barajı geçtin — açışın ${me().openPoints}. Artık işleyebilirsin.`,true);
+      log(`${NAMES[SELF]} barajı geçti — açışı ${me().openPoints}.`,true);
     }
   }
   S.staging=[]; 
@@ -2021,7 +2062,7 @@ function processInto_(id,mi){
     if(!swapOkey(me(),{mi,wild:w,mine:t})){ log('· Bu okey değiştirilemedi.'); return; }
     me().proc++;
     S.selected.clear();
-    log(`Okey senin oldu — yerine ${tileName(t)} girdi.`,true);
+    log(`${NAMES[SELF]} yerdeki okeyi aldı — yerine ${tileName(t)} girdi.`,true);
     render(); return;
   }
 
@@ -2038,7 +2079,7 @@ function processInto_(id,mi){
   me().procMap[key]=used+1; me().proc++;
   me().procLog.push({mi,tileId:t.id,key});
   S.selected.clear();
-  log(`${tileName(t)} taşını ${m.owner===SELF?'kendi perine':(S.players[m.owner].name+' perine')} işledin.`);
+  log(`${NAMES[SELF]}, ${tileName(t)} taşını ${NAMES[m.owner]} perine işledi.`);
   okeyHatirlat();
   render();
 }
@@ -2140,7 +2181,7 @@ function doProcess_(){
         if(!w) continue;
         if(swapOkey(me(),{mi,wild:w,mine:t})){
           me().proc++;                      // okey takası da işleme hakkı harcar
-          log(`Okey senin oldu — yerine ${tileName(t)} girdi.`,true);
+          log(`${NAMES[SELF]} yerdeki okeyi aldı — yerine ${tileName(t)} girdi.`,true);
           pending.splice(k,1); k--; n++; progress=true; takas=true;
         }
         break;
@@ -2165,7 +2206,7 @@ function doProcess_(){
   }
   S.selected.clear();
   if(!n) log(blocked?'· O uca bu tur 2 taş işledin, sıra sana gelince devam.':'· Uyan per yok.');
-  else log(`${n} taş işledin.`);
+  else log(`${NAMES[SELF]} ${n} taş işledi.`);
   okeyHatirlat();
   render();
 }
@@ -2199,7 +2240,7 @@ function doDoubleOkey(){
   me().pendingLay=null; me().layNow=false; me().retracted=false;
   me().mustRelay=null; me().mustOpen=false; S.lastDraw=null;
   S.selected.clear();
-  log('ÇİFT OKEY attın — el bitti, herkes dört katı yazar.',true);
+  log(`${NAMES[SELF]} ÇİFT OKEY attı — el bitti, herkes dört katı yazar.`,true);
   render();
   endHand(SELF,'Çift okey atarak bitirdin.');
 }
@@ -2249,7 +2290,7 @@ function doDiscard(auto){
   let ciftNow=false;
   if(me().mustOpen&&!me().opened){
     if(auto===true) log('Süre doldu — çift sayılmadın.',true);
-    else { declarePairs(me()); ciftNow=true; log('Aldığın taşla açmadın — çift demiş oldun.',true); }
+    else { declarePairs(me()); ciftNow=true; log(`${NAMES[SELF]} aldığı taşla açmadı — çift demiş oldu.`,true); }
   }
   let tasBorcu=false, sebep='';
   if(!bitiyor&&me().layNow&&me().pendingLay&&me().hand.some(x=>x.id===me().pendingLay)){
@@ -2270,14 +2311,14 @@ function doDiscard(auto){
     log('Geri aldığın taşı yeniden yere indirmedin — 71 ceza.',true);
   }
   me().mustRelay=null;
-  if(me().retracted&&!bitiyor){ me().fine+=71; log('Yerden taş topladın — 71 ceza.',true); }
+  if(me().retracted&&!bitiyor){ me().fine+=71; log(`${NAMES[SELF]} yerden taş topladı — 71 ceza.`,true); }
   me().pendingLay=null; me().layNow=false; me().retracted=false;
   me().mustOpen=false; S.lastDraw=null;
   me().hand=me().hand.filter(x=>x.id!==t.id);
   me().discards.push(t);
   S.okeyFinish=isWild(t); S.ciftOkeyFinish=false;
-  if(isLive(t)&&!bitiyor){ t.dead=true; if(auto!==true){ me().fine+=71; log('İşlek taş attın — 71 ceza. Bu taşı kimse alamaz.',true); } }
-  S.selected.clear(); log(`${tileName(t)} attın.`); render();
+  if(isLive(t)&&!bitiyor){ t.dead=true; if(auto!==true){ me().fine+=71; log(`${NAMES[SELF]} işlek taş attı — 71 ceza. Bu taşı kimse alamaz.`,true); } }
+  S.selected.clear(); log(`${NAMES[SELF]} ${tileName(t)} attı.`); render();
   if(me().hand.length===0){ endHand(SELF,'Son taşını attın.'); return; }
   advance();
 }
@@ -2679,7 +2720,7 @@ function render(){
   $('btnDeck').disabled=!(myTurn()&&S.phase==='draw'&&pileLeft()>0);
   $('btnTake').disabled=!(myTurn()&&S.phase==='draw'&&!!tp);
   $('btnUndo').disabled=!(act&&S.lastDraw&&S.lastDraw.from==='floor'&&!S.staging.length&&!me().openedNow);
-  $('btnOpen').disabled=!(act&&!me().opened);
+  $('btnOpen').disabled=!(act&&!me().opened&&!me().pairs);   // çift diyen seri açamaz
   $('btnPut').disabled=!(act&&me().opened);
   $('btnProcess').disabled=!(act&&me().opened);
   $('btnCollect').disabled=!(act&&((me().procLog||[]).length>0||!!S.snap));
@@ -2697,10 +2738,23 @@ function render(){
   const rackPairs=S.staging.length?S.staging.filter(g=>g.pair).length:rb.pairs.length;
   const pairMode=me().pairs||(S.staging.length&&S.staging.every(g=>g.pair));
   const canOut=act&&!me().opened&&elden2();
+
+  /* İki ayrı açış düğmesi: oyun neyle açmak istediğini tahmin etmez.
+     Elinde hem 71 sayı hem 5 çift varsa hangisini seçtiğini sen söylersin. */
   $('btnOpen').textContent = me().opened ? 'Açıldı'
-    : canOut ? 'Yere indir · elden'
-    : (pairMode?`Yere indir (${rackPairs}/${needPairs()} çift)`:`Yere indir (${rackPts}/${threshold()})`);
+    : me().pairs ? 'Çift dedin'
+    : canOut ? 'Seri Aç · elden'
+    : `Seri Aç (${rackPts}/${threshold()})`;
   $('btnOpen').className='gold';
+
+  // "Çift Aç": açmadıysan çiftle açar, açtıysan takozdaki çiftleri indirir.
+  const ciftIndirebilir = me().opened && !me().barajYok &&
+                          (me().pairs || tableHasPairs());
+  $('btnOpenP').disabled = !(act && (!me().opened || ciftIndirebilir));
+  $('btnOpenP').textContent = me().opened
+    ? `Çift Aç (${rackPairs} çift)`
+    : `Çift Aç (${rackPairs}/${needPairs()})`;
+  $('btnOpenP').className='gold';
   $('btnTake').textContent=(me().opened||me().pairs)?'Yerden al':'Yerden al = ÇİFT';
 
   $('mateBar').classList.toggle('hidden',!S.teams);
@@ -2944,7 +2998,8 @@ $('pTime').style.cursor='pointer';
 $('btnTake').onclick=doTake;
 $('btnUndo').onclick=doUndo;
 $('btnJoin').onclick=doJoin;
-$('btnOpen').onclick=()=>doOpen();
+$('btnOpen').onclick=()=>doOpen('seri');
+$('btnOpenP').onclick=()=>doOpenPairs();
 $('btnPut').onclick=doPut;
 $('btnCollect').onclick=doCollect;
 document.querySelectorAll('.mbtn').forEach(b=>{
@@ -3061,7 +3116,7 @@ const __api = {
   newHand, botTurn, render, endHand,
   /* hamleler */
   doDeck, doTake, doUndo, doCollect, doJoin, doProcess, processInto,
-  doDoubleOkey, doPut, doOpen, doDiscard, ciftIndir, ciftIndirIds, tableHasPairs,
+  doDoubleOkey, doPut, doOpen, doOpenPairs, doDiscard, ciftIndir, ciftIndirIds, tableHasPairs,
   setEmir, mateOf, EMIRLER, KAT, autoPlay, doUndo, bitirenTakozunuCiz,
   doOkey(){ if(autoOkey(S.players[SELF])) render(); }
 };

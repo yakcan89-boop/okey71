@@ -379,6 +379,8 @@ const ACTIONS = {
   // Takozdaki çiftleri yere indirme. Takoz düzeni yalnız istemcide olduğu
   // için grupları o hesaplar, buraya taş id'si olarak gelir.
   ciftindir: (api, d) => api.ciftIndirIds(d.groups),
+  // "Çift Aç" — henüz açmamış oyuncu çiftle açar. Gruplar istemciden gelir.
+  acikcift: (api, d) => { stage(api, d.groups); api.doOpen(); },
   // Eşine emir yollama (Topla / Çek / Taşla / Çifte git / Açtırma / Serbest).
   // Sıra beklemez: eş, kendi sırası olmasa da eşini yönlendirebilir.
   emir:    (api, d) => api.setEmir(d.m),

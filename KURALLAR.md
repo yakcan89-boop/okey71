@@ -184,11 +184,16 @@ de yere indirebilir.
 - Masada hiç çift yoksa bu hamle reddedilir.
 - Elde atacak taş kalmalıdır; son iki taşı çift diye indirip bitirilemez.
 
-Uygulamada üç yol da aynı işi yapar: iki taşı seçip **İşle**, **Çift diz** deyip
-hiçbir şey seçmeden **İşle** (takozda yan yana gelen çiftleri kendiliğinden
-bulur), ya da **Yere koy**.
+Uygulamada bunun düğmesi **Çift Aç**'tır: takozda yan yana duran çiftleri yere
+indirir. Tek tek seçmek istersen iki taşı seçip **İşle** de olur.
 
 ### 5.7 Çift hakkı sorusu
+
+Taşı atan "çift diyorum" derse, taşı almak isteyen oyuncunun **her zaman iki
+geçerli çıkışı olur**: taşı geri bırakmak, ya da kendisi de çifte dönmek.
+Geri bırakma bir sebeple yapılamazsa perde kapanmaz, yeniden açılır — oyuncu
+çıkışsız kalıp masayı kilitleyemez.
+
 
 Bu soru **yalnızca** "senin taşınla DÜZ açacağım" durumunda sorulur.
 **Çifte gitmiş bir oyuncu yerden taş alırken kimseye sormaz** — çifte gittiğini
@@ -203,6 +208,27 @@ isterse, taşı atan kişiye sorulur:
 
 Eşli oyunda soru önce **atanın eşine** danışılır (10 saniye): "Çift desin",
 "Alsın, versin", "Karışmam". Tavsiye bağlayıcı değildir, karar taşı atanındır.
+
+---
+
+### 5.8 Açış düğmeleri: Seri Aç / Çift Aç
+
+Oyun neyle açmak istediğini **tahmin etmez**; iki ayrı düğme vardır.
+
+| Düğme | Açmamışken | Açtıktan sonra |
+|---|---|---|
+| **Seri Aç** | Takozdaki serilerle açar (71/101 barajı) | kapalı — yeni per için "Yere koy" |
+| **Çift Aç** | Takozdaki çiftlerle açar (5–7 çift) | Takozdaki çiftleri yere indirir |
+| **İşle** | — | Yerdeki perlere taş işler / okey takası |
+
+Bu ayrım şart, çünkü elinde **hem 71+ sayı hem 5 çift** olabilir. Eskiden oyun
+hangisini istediğini tahmin ediyordu ve yanlış tahmin edince tıkanıyordu.
+
+- Çift dediyseniz **Seri Aç** kapalıdır — çift diyen asla seri indiremez (§5.4).
+- Seriyle açmış oyuncu, yerde çift açan varsa **Çift Aç** ile kendi çiftini
+  indirir (§5.6). Bu onu çift oyuncusu yapmaz.
+- Önce **Seriye çevir** / **Çift diz** ile takozu dizmek işi kolaylaştırır ama
+  şart değildir; düğmeler takozda yan yana duran grupları kendileri bulur.
 
 ---
 
@@ -493,6 +519,9 @@ Alttaki kayıt masanın **ortak defteridir**; orada gizli bilgi durmaz.
 - Yerden alınan taş herkesin gözü önünde alındığı için adıyla yazılabilir.
 - "·" ile başlayan satırlar **kişisel uyarılardır** ("Yerden aldığın Kırmızı 5'i
   indirmelisin" gibi) ve yalnız o oyuncuya gider.
+- Masaya açık satırlar **3. şahıs** ve **adla** yazılır: "Alt Kırmızı 4 attı",
+  "Yunus yerden Siyah 9 aldı". "Kırmızı 4 attın" gibi bir satır herkese gidince
+  yanlış kişiyi işaret ediyordu.
 
 Masada insan varsa **kimseye "Sen" denmez**; herkes adıyla anılır — kayıtta,
 skor tablosunda, eş başlıklarında, zar ekranında. Eşli oyunda başlık
