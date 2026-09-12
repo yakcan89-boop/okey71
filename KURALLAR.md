@@ -109,6 +109,10 @@ atmasını** engeller. Aldıysan indireceksin.
 ceza yazmaz, ama **çift demiş sayılır** (§5.1). Açacaksa aldığı taşı açışında
 kullanmalıdır.
 
+**Taşı geri verirse hiç almamış sayılır**: çift borcu da kalkar. Bu iki durumda
+olur — kendi isteğiyle "Geri bırak" derse, ya da çift hakkı sorusunda taşı atan
+"çift diyorum" deyip taşı vermezse.
+
 Bunun el sonundaki bedeli büyüktür: çift sayılıp da açamayan **101 değil 202**
 yazar (§9). Kural insan için de bot için de aynıdır.
 

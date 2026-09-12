@@ -1323,7 +1323,10 @@ function botDraw(p,next){
         p.hand=p.hand.filter(t=>t.id!==top.id);
         prev.discards.push(top);
         p.pendingLay=null; p.layNow=false;
-        log(`${p.name} çift dendiği için taşı geri bıraktı, desteden çekti.`);
+        // Taşı GERİ VERDİ — hiç almamış sayılır. "Açacaksın yoksa çiftsin"
+        // borcu da kalkmalı, yoksa taş atarken haksız yere çift sayılıyor.
+        p.mustOpen=false; p.tookToOpen=false;
+        log(`${NAMES[p.i]} çift dendiği için taşı geri bıraktı, desteden çekti.`);
         fromDeck();
       });
     }
@@ -1350,7 +1353,8 @@ function botDraw(p,next){
       p.hand=p.hand.filter(t=>t.id!==top.id);
       prev.discards.push(top);
       p.pendingLay=null; p.layNow=false;
-      log(`${p.name} çift dendiği için taşı geri bıraktı, desteden çekti.`);
+      p.mustOpen=false; p.tookToOpen=false;      // taşı geri verdi, borcu yok
+      log(`${NAMES[p.i]} çift dendiği için taşı geri bıraktı, desteden çekti.`);
       fromDeck();
     });
   }
@@ -1481,7 +1485,7 @@ function botPlay(p){
     const bitiyor = p.hand.length===1;
     if(p.mustOpen&&!p.opened&&!bitiyor&&!p.pairs){
       declarePairs(p);
-      log(`${p.name} aldığı taşla açmadı — çift demiş oldu.`,true);
+      log(`${NAMES[p.i]} aldığı taşla açmadı — çift demiş oldu.`,true);
     }
     p.mustOpen=false;
     if(p.tookToOpen&&!p.opened&&!bitiyor){
