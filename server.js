@@ -18,9 +18,18 @@ const SCRIPT = HTML.match(/<script>([\s\S]*?)<\/script>/)[1];
 
 /* ---------- zaman ayarları ---------- */
 const POLL_MS    = 25000;    // uzun yoklamanın boşa çıkma süresi
-const AWOL_MS    = 70000;    // bu kadar süre hiç yoklama gelmezse oyuncu kopmuş sayılır
+const TUR_MIN    = 40;       // ağ oyununda en kısa tur süresi (saniye)
+const SORU_MS    = 20000;    // çift hakkı sorusu bu kadar beklerse kendiliğinden geçilir
+const TAVSIYE_MS = 8000;     // eş tavsiyesi bu kadar beklerse "karışmam" sayılır
+const BOT_MS     = 30000;    // bot koltuğu bu kadar takılırsa dürtülür
+const PERDE_MS   = 90000;    // el sonu perdesi bu kadar beklerse kendiliğinden geçilir
+const KACIRMA_SINIR = 3;     // üst üste bu kadar tur kaçıran masadan düşer
+/* Süre KAPALIYKEN çalışan sessiz emniyet. Ekranda sayaç görünmez, kimse
+   acele etmez; ama biri telefonu bırakıp giderse masa kilitlenmesin diye
+   sunucu bu süreden sonra yine de oynatır ve bunu kaçırma sayar. */
+const SESSIZ_MS  = 180000;   // 3 dakika
 const DEAD_MS    = 300000;   // odadaki tüm insanlar bu kadar süre yoksa oda silinir
-const SWEEP_MS   = 10000;    // kontrol sıklığı
+const SWEEP_MS   = 2000;     // kontrol sıklığı (sıra saati buna bakıyor)
 
 /* ---------- sunucuda çalışan sahte ekran ---------- */
 function stubEl() {
@@ -59,7 +68,15 @@ function makeRoom(teams) {
     watchers: [],                      // {pid, name, lastSeen}
     owner: null,                       // oda sahibinin pid'i (koltuk değişse de sabit)
     sira: 0,                           // katılım sırası sayacı (sahiplik devri buna bakar)
-    timerSec: 0,                       // tur süresi — masanın ortak ayarı, sahibi belirler
+    timerSec: TUR_MIN,                 // tur süresi — masanın ortak ayarı, sahibi belirler
+    // Sıra saati SUNUCUDA işler: tarayıcı kapalı olsa da süre dolar ve
+    // oyuncu adına oynanır. Eskiden sayaç yalnız istemcideydi; sekmesini
+    // kapatanın süresi hiç dolmuyor, masa duruyordu.
+    turSeat: null,                     // saatin işlediği koltuk
+    turBasladi: 0,                     // o koltuğun sırası ne zaman başladı
+    soruBasladi: 0,                    // bekleyen sorunun başlangıcı
+    perdeBasladi: 0,                   // bekleyen perdenin başlangıcı
+    kacirdi: [0, 0, 0, 0],             // üst üste kaçırılan tur sayısı
     // Oyun BAŞLADIKTAN sonra masaya oturmak oda sahibinin onayına bağlıdır.
     // {pid, ad, seat, t} — seat: istenen koltuk (null = fark etmez)
     istekler: [],
@@ -141,42 +158,59 @@ function makeRoom(teams) {
     const seat = (api.S.askSeat != null) ? api.S.askSeat : api.self;
     // actor: soruyu doğuran hamleyi yapan koltuk (soruyu CEVAPLAYAN değil).
     // Cevap dönünce motor bu koltukla devam etmeli, yoksa açış yanlış kişiye yazılır.
-    // auto: cevap veren koltuk kopup bota devredilirse basılacak güvenli düğme
-    // (her iki soruda da altın renkli olan seçenek "durumu büyütmeyen" cevaptır).
+    // auto: süre dolunca basılacak güvenli düğme (altın renkli olan, durumu
+    // büyütmeyen cevap). opts.autoIdx varsa o kullanılır.
     const gold = buttons.findIndex(b => b.cls === 'gold');
-    // opts.autoIdx + opts.sure: eş tavsiyesi gibi süreli sorular. Süre dolunca
-    // o düğmeye kendiliğinden basılır ve oyun devam eder.
-    const auto = (opts && opts.autoIdx != null) ? opts.autoIdx
+    const auto = (opts && opts.autoIdx != null) ? auto0(opts.autoIdx, buttons)
                : (gold < 0 ? buttons.length - 1 : gold);
-    if (room.askTimer) { clearTimeout(room.askTimer); room.askTimer = null; }
+    // TEK ZAMANLAYICI: soruların süresi burada değil, sıra saati süpürmesinde
+    // işler. Eskiden biri burada setTimeout ile, öteki süpürmede sayıyordu;
+    // aynı iş iki yerde durunca birini değiştirince öteki unutuluyordu.
+    const sn = (opts && opts.sure) ? opts.sure * 1000 : SORU_MS;
     room.pendingAsk = {
       seat, actor: api.self, auto,
-      sure: (opts && opts.sure) || 0,
-      bitis: (opts && opts.sure) ? Date.now() + opts.sure * 1000 : 0,
+      sureMs: sn,
+      basladi: Date.now(),
+      bitis: Date.now() + sn,
+      sure: Math.round(sn / 1000),
       title, html, buttons: buttons.map(b => b.t), fns: buttons
     };
+    room.soruBasladi = Date.now();
     api.S.askSeat = null;
-    if (opts && opts.sure) {
-      room.askTimer = setTimeout(() => {
-        room.askTimer = null;
-        const ask = room.pendingAsk;
-        if (!ask) return;
-        room.pendingAsk = null;
-        room.log.push({ m: `· ${(room.seats[ask.seat]||{}).name || 'Oyuncu'} süresinde cevap vermedi.`, t: Date.now() });
-        const aktor = ask.actor != null ? ask.actor : ask.seat;
-        api.setSelf(aktor);
-        try { ask.fns[ask.auto].fn(); } catch (_) {}
-        if (!room.pendingAsk) stagingGeriVer(api, aktor);
-        api.setSelf(0);
-        push(room);
-      }, opts.sure * 1000 + 500);
-    }
     push(room);
   };
+
+  function auto0(i, buttons) {
+    return (i >= 0 && i < buttons.length) ? i : buttons.length - 1;
+  }
+
   ctx.rollDice = (cb) => cb(Math.floor(Math.random() * 4));
 
   rooms.set(code, room);
   return room;
+}
+
+/* Bir koltuğa kaçırma yazar; sınıra gelirse koltuğu boşaltır.
+   Hem süresi dolan tur hem cevapsız kalan soru buraya düşer — ikisi de
+   masayı bekletiyor, ikisi de aynı sayaca yazılmalı. */
+function kacirmaYaz(room, seat, sebep) {
+  const oturan = room.seats[seat];
+  if (!oturan) return;                       // bot koltuğu: sayaç tutulmaz
+  const now = Date.now();
+  room.kacirdi[seat] = (room.kacirdi[seat] || 0) + 1;
+  if (room.kacirdi[seat] < KACIRMA_SINIR) {
+    room.log.push({ m: `· ${oturan.name} ${sebep} (${room.kacirdi[seat]}/${KACIRMA_SINIR}).`, t: now });
+    return;
+  }
+  const ad = oturan.name, pid = oturan.pid;
+  room.seats[seat] = null;
+  room.kacirdi[seat] = 0;
+  room.istekler = room.istekler.filter(x => x.pid !== pid);
+  room.api.S.players[seat].bot = true;
+  room.api.setNames(botAdlari(room));
+  room.log.push({ m: `· ${ad} üst üste ${KACIRMA_SINIR} kez masayı bekletti — düştü, yerine bot bakıyor.`, t: now });
+  devretSahiplik(room, pid);
+  if (!room.seats.some(Boolean)) closeRoom(room, 'terk');
 }
 
 /* Oturma isteği kaydeder. Aynı kişi iki kez sıraya girmez. */
@@ -316,6 +350,13 @@ function viewFor(room, seat) {
     watcher: seat < 0,
     odaKodu: room.code,
     timerSec: room.timerSec || 0,
+    // Sayaç sunucuda işliyor; istemci yalnız gösteriyor.
+    // Süre kapalıyken sayaç GÖSTERİLMEZ; sessiz emniyet arkada işler.
+    kalanSure: (room.started && room.timerSec > 0 && !room.pendingAsk && !room.pendingNext)
+      ? Math.max(0, Math.ceil(room.timerSec - (Date.now() - room.turBasladi) / 1000))
+      : null,
+    kacirdim: seat >= 0 ? (room.kacirdi[seat] || 0) : 0,
+    kacirmaSinir: KACIRMA_SINIR,
     freeSeats: room.seats.map((x, i) => (x ? -1 : i)).filter(i => i >= 0),
     // Boş koltuklara oyun sırasında BOT bakar; istemci "bot oynuyor" yazsın.
     botKoltuklar: room.started
@@ -500,6 +541,7 @@ function doAction(room, seat, type, data) {
   if (S.turn !== seat) return { ok: false, err: 'Sıra sende değil.' };
 
   S.busy = false;
+  room.kacirdi[seat] = 0;              // hamle yaptı: kaçırma sayacı sıfırlanır
   const before = { hand: S.players[seat].hand.length, turn: S.turn, phase: S.phase,
                    melds: S.melds.length, log: room.log.length };
   api.setSelf(seat);
@@ -536,10 +578,10 @@ function readBody(req) {
   });
 }
 
-/* ---------- kopma denetimi ----------
-   Uzun yoklamanın boşa çıkması kopma DEĞİLDİR; oyunda 25 sn hiçbir değişiklik
-   olmaması gayet normaldir. Kopma, oyuncudan hiç yoklama isteği gelmemesidir.
-   Bu yüzden karar burada, ayrı bir süpürmede veriliyor.                        */
+/* ---------- sıra saati ve oda bakımı ----------
+   Masayı durduran her şey buradan çözülür: süresi dolan tur, cevapsız kalan
+   soru, kapanmayan perde, terk edilmiş oda. Bağlantı koptu diye kimse bota
+   devredilmez — süreyi kaçıran düşer, sekmesi açık mı kapalı mı fark etmez. */
 setInterval(() => {
   const now = Date.now();
   for (const room of Array.from(rooms.values())) {
@@ -560,35 +602,76 @@ setInterval(() => {
       continue;
     }
 
-    let degisti = false;
-    room.seats.forEach((s, i) => {
-      if (!s) return;                        // zaten bot koltuğu
-      if (S.players[i].bot) return;          // zaten bota devredilmiş
-      if (now - (s.lastSeen || 0) < AWOL_MS) return;
-      S.players[i].bot = true;
-      room.log.push({ m: `· ${s.name} bağlantısı koptu, yerine bot bakıyor.`, t: now });
-      degisti = true;
-    });
+    /* ---------- SIRA SAATİ ----------
+       Süre sunucuda işler. Tarayıcısı kapalı olsa da oyuncunun süresi dolar
+       ve onun adına oynanır; masa durmaz. Üst üste KACIRMA_SINIR tur kaçıran
+       masadan düşer, yerine bot bakar, geri dönmek için oda sahibinin izni
+       gerekir (§12.1). */
+    if (!S.over && !room.pendingAsk && !room.pendingNext) {
+      const sira = S.turn;
+      if (room.turSeat !== sira) { room.turSeat = sira; room.turBasladi = now; }
 
-    if (degisti) {
-      // Soru, kopan oyuncuya sorulmuş olabilir. Kimse cevaplayamayacağı için
-      // masa sonsuza kadar kilitlenir; güvenli seçeneği bot adına basıyoruz.
-      if (room.pendingAsk && S.players[room.pendingAsk.seat].bot) {
+      const oturan = room.seats[sira];
+      // Süre kapalıysa sayaç görünmez ama sessiz emniyet yine de işler.
+      const sinir = room.timerSec > 0 ? room.timerSec * 1000 : SESSIZ_MS;
+      const sessiz = room.timerSec <= 0;
+      const sureDoldu = now - room.turBasladi > sinir;
+
+      if (oturan && !S.players[sira].bot && sureDoldu) {
+        room.api.setSelf(sira);
+        try { room.api.autoPlay(); } catch (e) {}
+        room.api.setSelf(0);
+        room.turSeat = S.turn; room.turBasladi = now;
+        kacirmaYaz(room, sira, sessiz ? 'uzun süre hamle yapmadı, onun adına oynandı'
+                                      : 'süreyi kaçırdı');
+        push(room);
+      }
+
+      // BOT EMNİYETİ: bot koltuğunda saat işlemiyordu (oturan null olduğu için).
+      // Bot bir sebeple takılırsa masayı kurtaracak bir şey yoktu; dürtüyoruz.
+      if (!oturan && now - room.turBasladi > BOT_MS) {
+        room.turBasladi = now;
+        S.busy = false;
+        try { room.api.botTurn(); } catch (e) {}
+        room.log.push({ m: '· Bot takıldı, oyun ilerletildi.', t: now });
+        push(room);
+      }
+    }
+
+    /* Bekleyen soru/perde kimseyi bekletmesin: sahibi cevaplamazsa
+       güvenli seçenek kendiliğinden işletilir. */
+    if (room.pendingAsk) {
+      if (!room.soruBasladi) room.soruBasladi = now;
+      const soruSuresi = room.pendingAsk.sureMs || SORU_MS;
+      if (now - room.soruBasladi > soruSuresi) {
         const ask = room.pendingAsk;
-        room.pendingAsk = null;
-        room.log.push({ m: `· ${S.players[ask.seat].name} cevap veremedi — soru kendiliğinden geçildi.`, t: now });
+        room.pendingAsk = null; room.soruBasladi = 0;
         const aktor = ask.actor != null ? ask.actor : ask.seat;
         room.api.setSelf(aktor);
         try { ask.fns[ask.auto].fn(); } catch (_) {}
         if (!room.pendingAsk) stagingGeriVer(room.api, aktor);
         room.api.setSelf(0);
+        // Cevapsız soru da masayı bekletir: aynı sayaca yazılır. Yoksa biri
+        // her soruyu görmezden gelip her turda masayı bekletebiliyordu.
+        kacirmaYaz(room, ask.seat, 'soruyu cevapsız bıraktı');
+        room.turBasladi = now;
+        push(room);
       }
-      push(room);
-      if (!S.over && S.players[S.turn].bot) {
-        S.busy = false;
-        try { room.api.botTurn(); } catch (_) {}
+    } else room.soruBasladi = 0;
+
+    if (room.pendingNext) {
+      if (!room.perdeBasladi) room.perdeBasladi = now;
+      if (now - room.perdeBasladi > PERDE_MS) {
+        const fns = room.pendingNext.fns || [];
+        room.pendingNext = null; room.perdeBasladi = 0;
+        room.log.push({ m: '· Perde uzun süre bekledi — kendiliğinden devam edildi.', t: now });
+        room.api.setSelf(0);
+        try { if (fns[0]) fns[0](); } catch (_) {}
+        room.api.setSelf(0);
+        room.turBasladi = now;
+        push(room);
       }
-    }
+    } else room.perdeBasladi = 0;
   }
 }, SWEEP_MS);
 
@@ -742,11 +825,14 @@ const server = http.createServer(async (req, res) => {
     const room = rooms.get(String(d.code || '').toUpperCase());
     if (!room) return send(res, 404, { err: 'Oda yok.' });
     if (d.pid !== room.owner) return send(res, 403, { err: 'Süreyi oda sahibi ayarlar.' });
-    const sn = Math.max(0, Math.min(120, Math.round(Number(d.sn) || 0)));
+    // 0 = kapalı (sessiz emniyet devreye girer). Açıksa en az TUR_MIN saniye.
+    const ham = Math.round(Number(d.sn) || 0);
+    const sn = ham <= 0 ? 0 : Math.max(TUR_MIN, Math.min(180, ham));
     room.timerSec = sn;
     if (room.api) room.api.S.timerSec = sn;
-    room.log.push({ m: sn ? `· Tur süresi ${sn} saniyeye ayarlandı.` : '· Tur süresi kapatıldı.',
-                    t: Date.now() });
+    room.turBasladi = Date.now();
+    room.log.push({ m: sn ? `· Tur süresi ${sn} saniyeye ayarlandı.`
+                          : '· Tur süresi kapatıldı — kimse acele etmesin.', t: Date.now() });
     push(room);
     return send(res, 200, { ok: true, timerSec: sn });
   }

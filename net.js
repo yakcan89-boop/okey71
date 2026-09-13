@@ -348,6 +348,24 @@
     S.odaKodu = v.odaKodu || CODE || null;
     S.odaSahibi = !!v.owner;
     S.timerSec = v.timerSec || 0;
+    // Sayaç sunucuda işliyor; burada yalnız gösteriliyor.
+    const st = document.getElementById('pTime');
+    if (st) {
+      if (v.kalanSure == null) {
+        st.textContent = v.timerSec ? 'Süre —' : 'Süre kapalı';
+        st.className = 'pill off';
+      }
+      else {
+        st.textContent = 'Süre ' + v.kalanSure;
+        st.className = 'pill' + (v.kalanSure <= 10 && v.turn === v.seat ? ' hot' : ' off');
+      }
+    }
+    // Tur kaçırma uyarısı: kaç hakkı kaldığını söyle, sessizce düşme.
+    if (v.kacirdim > 0 && v.kacirdim !== SON_KACIRMA) {
+      SON_KACIRMA = v.kacirdim;
+      flash(v.kacirdim + '/' + (v.kacirmaSinir || 3) + ' tur kaçırdın — ' +
+            ((v.kacirmaSinir || 3) - v.kacirdim) + ' hakkın kaldı.');
+    } else if (!v.kacirdim) SON_KACIRMA = 0;
     S.deck = new Array(v.deck).fill(0);
     S.center = new Array(v.center).fill(0).map((_, i) => ({ id: -100 - i }));
     S.melds = v.melds;
@@ -464,6 +482,7 @@
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   let VER = -1, RUNNING = false, STOP = false;
   let READONLY = false;      // seyircide hiçbir hamle gönderilmez
+  let SON_KACIRMA = 0;       // aynı uyarıyı üst üste basmamak için
   let SEYIRCI = false;
 
   /* ---------- bağlantı rozeti ---------- */
@@ -901,12 +920,14 @@
     const st = document.getElementById('pTime');
     if (st) st.onclick = async () => {
       if (!api.S.odaSahibi) { flash('Süreyi oda sahibi ayarlar.'); return; }
-      const SECENEK = [0, 20, 30, 45, 60];
+      const SECENEK = [0, 40, 60, 80];   // 0 = kapalı (sessiz emniyet devrede)
       const su = api.S.timerSec || 0;
-      const sn = SECENEK[(SECENEK.indexOf(su) + 1) % SECENEK.length];
+      const yer = SECENEK.indexOf(su);
+      const sn = SECENEK[(yer < 0 ? 0 : yer + 1) % SECENEK.length];
       const r = await post('/api/sure', { code: CODE, pid: PID, sn });
       if (r && r.err) flash(r.err);
-      else flash(sn ? 'Tur süresi ' + sn + ' saniye.' : 'Tur süresi kapalı.');
+      else flash(sn ? 'Tur süresi ' + sn + ' saniye.'
+                    : 'Tur süresi kapalı — kimse acele etmesin.');
     };
 
     on('btnProcess', () => {

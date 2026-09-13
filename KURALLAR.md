@@ -533,14 +533,37 @@ Masada oturmayan herkes **seyircidir**. Ayrı bir "yancı" rolü yoktur.
 - Seyirci masadan istediği an ayrılabilir.
 - İleride sohbet eklenirse seyirci de mesaj yazabilecek.
 
-### 12.1 Kopma ve geri dönüş
+### 12.1 Süre, kaçırma ve geri dönüş
 
-İki durum birbirinden ayrıdır:
+**Sıra süresi sunucuda işler.** Tarayıcı kapalı olsa da süre dolar ve oyuncu
+adına oynanır; masa durmaz.
 
-**Bağlantı koptu / sekmeyi kapattı** — "Masadan ayrıl" demedi.
-- Koltuk **korunur**. 70 saniye yoklama gelmezse elini **bot devralır**,
-  oyun durmaz.
-- Kişi dönünce koltuğunu **kendiliğinden geri alır**; izin gerekmez.
+Süreyi **yalnız oda sahibi** ayarlar: kapalı → 40 → 60 → 80 saniye.
+
+**Süre kapalıyken** ekranda sayaç görünmez, kimse acele etmez. Ama arkada
+**3 dakikalık sessiz emniyet** işler: o kadar süre hiç hamle olmazsa sunucu
+oyuncu adına oynar ve bunu kaçırma sayar. Böylece biri telefonu bırakıp
+gittiğinde masa kilitlenmez.
+
+**Süre dolunca ne olur** (§2.1'deki otomatik hamle):
+- Hazırlanan taşlar ele geri döner
+- **O turda** yere inmiş taşlar **toplanır** — barajı geçmiş olsa bile.
+  Önceki turlarda açılanlar yerde **kalır**: onlar bitmiş hamlelerdir.
+- Yerden alınmış taş **iade edilir** (açmış oyuncuysa 71 ceza)
+- Desteden çekilir, çekilen taş atılır
+
+**Kaçırma sayacı:** her otomatik oynatmada +1, gerçek hamle yapınca **sıfırlanır**.
+Oyuncuya "1/3 tur kaçırdın — 2 hakkın kaldı" diye bildirilir.
+
+**Üst üste 3 kaçıran masadan düşer.** Koltuk boşalır, yerine bot bakar. Geri
+dönmek için kodu girip **oda sahibinin iznini** alması gerekir.
+
+Sessiz emniyet çalışınca kayda "*X* uzun süre hamle yapmadı — onun adına
+oynandı (1/3)" diye düşer; kimse ne olduğunu merak etmez.
+
+**Bağlantı koptu / sekmeyi kapattı** — bu tek başına koltuk kaybettirmez.
+Kişi dönerse kaldığı yerden devam eder. Kaybettiren şey **süreyi kaçırmaktır**,
+bağlantı değil. (Sekmesi kapalıysa süreleri zaten kaçacaktır.)
 
 **"Masadan ayrıl" dedi** — koltuğu bilerek bıraktı.
 - Koltuk **boşalır**, yerine bot bakar.
@@ -572,23 +595,43 @@ Yeni sahip bütün yetkileri alır: oturma isteklerini onaylar, masayı kapatabi
 **"Masayı Kapat"** — bu devretmez, **odayı tümden kapatır**. Herkes düşer.
 Yalnız oda sahibi yapabilir.
 
-### 12.4 Oda kodu ve tur süresi
+### 12.4 Bekleyen soru ve perde
+
+| Ne | Süre | Dolunca |
+|---|---|---|
+| Eş tavsiyesi | 8 sn | "Karışmam" |
+| Çift hakkı sorusu | 20 sn | "Alsın" — taş alana geçer |
+| El / tur sonu perdesi | 90 sn | İlk düğmeye basılır |
+
+**Cevapsız kalan soru da kaçırma sayılır** ve tur kaçırmayla aynı sayaca
+yazılır. Yoksa biri her soruyu görmezden gelip masayı her turda bekletebilirdi.
+Üç kez masayı bekleten — ister tur kaçırarak ister soru cevaplamayarak —
+koltuğunu kaybeder.
+
+**Bot koltuğunda da emniyet var:** bot bir sebeple takılırsa 30 saniyede
+dürtülür. Bota kaçırma yazılmaz.
+
+Bütün soru süreleri tek yerde işler (`pendingAsk.sureMs`); daha önce ikisi iki
+ayrı zamanlayıcıdaydı.
+
+### 12.5 Oda kodu ve tur süresi
 
 Oda kodu **puan tablosunun başlığında** yazar: "**XXBN adlı oda · Puan Tablosu**".
 Üst çubuğa konmadı, telefonda düğmelerin altında kalıyordu.
 
 **Tur süresi masanın ortak ayarıdır ve yalnız oda sahibi değiştirir.** Üstteki
-süre rozetine dokunmak sırayla kapalı → 20 → 30 → 45 → 60 saniye arasında
+süre rozetine dokunmak sırayla **kapalı → 40 → 60 → 80** saniye arasında
 gezdirir; ayar anında masadaki herkese uygulanır. Sahip olmayan dokunursa
-"Süreyi oda sahibi ayarlar" uyarısı alır.
+"Süreyi oda sahibi ayarlar" uyarısı alır. Kapalı seçeneğinde sessiz emniyet
+devreye girer (§12.1).
 
-### 12.5 Oda ömrü
+### 12.6 Oda ömrü
 
 - Masadaki herkes 5 dakika uğramazsa oda kendiliğinden kapanır.
 
 ---
 
-## 12.6 Kayıt defteri ve adlar
+## 12.7 Kayıt defteri ve adlar
 
 Alttaki kayıt masanın **ortak defteridir**; orada gizli bilgi durmaz.
 

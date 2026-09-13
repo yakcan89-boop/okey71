@@ -1226,7 +1226,7 @@ function esTavsiyesiAl(discarder, taker, tile, planTxt, sonra){
     [ {t:'Çift desin', cls:'red',  fn:()=>{ log(`${es.name}, eşine “çift de” dedi.`,true); sonra('cift'); }},
       {t:'Alsın, versin', cls:'gold', fn:()=>{ log(`${es.name}, eşine “alsın” dedi.`,true); sonra('ver'); }},
       {t:'Karışmam', fn:()=>sonra(null) } ],
-    {sure:10, autoIdx:2});
+    {sure:8, autoIdx:2});      // eş tavsiyesi 8 sn — masa boş beklemesin
 }
 
 function kararVer(discarder, taker, tile, planTxt, tavsiye, cb){
@@ -2858,7 +2858,11 @@ function render(){
   syncTimer();
 }
 
-const TIMER_OPTS=[0,40,60,80];
+/* Süre kapatılabilir. Ağda kapalıyken sayaç görünmez ama sunucuda sessiz
+   bir emniyet işler: 3 dakika hamle olmazsa oyuncu adına oynanır. */
+const TIMER_OPTS_TEK=[0,40,60,80];
+const TIMER_OPTS_AG =[0,40,60,80];
+const TIMER_OPTS = () => (window.__NET__ ? TIMER_OPTS_AG : TIMER_OPTS_TEK);
 let timerId=null, timeLeft=0;
 function stopTimer(){
   if(timerId){ clearInterval(timerId); timerId=null; }
@@ -2877,8 +2881,9 @@ function cycleTimer(){
     log('· Süreyi oda sahibi ayarlar.',true);
     return;
   }
-  const i=TIMER_OPTS.indexOf(S.timerSec);
-  S.timerSec=TIMER_OPTS[(i+1)%TIMER_OPTS.length];
+  const L=TIMER_OPTS();
+  const i=L.indexOf(S.timerSec);
+  S.timerSec=L[(i+1)%L.length];
   stopTimer(); render();
   log(S.timerSec?`Süre ${S.timerSec} saniyeye ayarlandı.`:'Süre kapatıldı.');
 }
@@ -2899,6 +2904,13 @@ function syncTimer(){
 function autoPlay(){
   if(!myTurn()) return;
   if(S.staging.length){ S.staging.forEach(g=>me().hand.push(...g.tiles)); S.staging=[]; }
+  // BU TUR yere inen taşlar toplanır — barajı geçmiş olsa bile. Sıra sana
+  // geldiğinde süre sıfırdan başlar; o tur hamleni tamamlamadıysan o turun
+  // işi geri alınır. Önceki turlarda açtıkların yerde KALIR, onlar bitmiş
+  // hamlelerdir. (openedNow her turun başında sıfırlanıyor.)
+  if(me().openedNow && S.snap){
+    try { doCollect(); } catch(e){}
+  }
   const d0=S.lastDraw;
   // Süre dolduğunda yerden alınan taş — açmış oyuncuda da — yere iade edilir,
   // oyuncu desteden çekip atar. Açmış oyuncu yere indirmediği için 71 yazar.
