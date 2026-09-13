@@ -543,7 +543,8 @@ Masada oturmayan herkes **seyircidir**. Ayrı bir "yancı" rolü yoktur.
 **Sıra süresi sunucuda işler.** Tarayıcı kapalı olsa da süre dolar ve oyuncu
 adına oynanır; masa durmaz.
 
-Süreyi **yalnız oda sahibi** ayarlar: kapalı → 40 → 60 → 80 saniye.
+Süre **kapalı başlar**. Oda sahibi isterse oyun içinde açar: üstteki süre
+rozetine dokunmak kapalı → 40 → 60 → 80 saniye arasında gezdirir.
 
 **Süre kapalıyken** ekranda sayaç görünmez, kimse acele etmez. Ama arkada
 **3 dakikalık sessiz emniyet** işler: o kadar süre hiç hamle olmazsa sunucu
@@ -676,8 +677,9 @@ Kodda katlama üç alanla izlenir. Yeni kod yazarken bunlara dikkat:
 
 **Kural:** `S.topOpen` ve `S.pairsMax`'a açış dışında hiçbir yerden yazılmaz.
 
-Ekranda da **açış** gösterilir: oyuncu rozetinde "açtı 71" yazar, yerdeki
-toplam değil. Kendi rozetinde ikisi ayrıdır: "Açışın 71 · yerde 80".
+Ekranda da **yalnız açış** gösterilir: "açtı 71" / "Açışın 71" / "5 çift".
+Sonradan indirilenler rozete yansımaz — katlamayı etkilemedikleri gibi
+ekranda da görünmezler. İki sayı yan yana yazınca kafa karıştırıyordu.
 
 ### 13.1 Çarpanlar tek yerde
 

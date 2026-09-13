@@ -2700,11 +2700,10 @@ function render(){
   const pm=$('pMe');
   if(me().opened&&me().pairs){ pm.className='pill hot'; pm.textContent=`${me().openPairs} çift açtın`; }
   else if(me().opened){
+    // Rozette YALNIZ açış sayısı yazar. Sonradan indirilenler katlamayı
+    // etkilemediği gibi rozette de görünmez — iki sayı kafa karıştırıyordu.
     pm.className='pill gold';
-    const ac=me().acilis||me().openPoints;
-    // Açış sabit; yerdeki toplam ondan büyükse ayrıca gösterilir.
-    pm.textContent = me().openPoints>ac ? `Açışın ${ac} · yerde ${me().openPoints}`
-                                        : `Açışın ${ac}`;
+    pm.textContent = `Açışın ${me().acilis||me().openPoints}`;
   }
   else if(me().pairs){ pm.className='pill hot'; pm.textContent='Çift dedin'; }
   else { pm.className='pill off'; pm.textContent='Açmadın'; }

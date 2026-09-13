@@ -68,7 +68,9 @@ function makeRoom(teams) {
     watchers: [],                      // {pid, name, lastSeen}
     owner: null,                       // oda sahibinin pid'i (koltuk değişse de sabit)
     sira: 0,                           // katılım sırası sayacı (sahiplik devri buna bakar)
-    timerSec: TUR_MIN,                 // tur süresi — masanın ortak ayarı, sahibi belirler
+    // Süre KAPALI başlar; oda sahibi isterse oyun içinde açar. Kapalıyken
+    // sessiz emniyet (SESSIZ_MS) masayı korumaya devam eder.
+    timerSec: 0,
     // Sıra saati SUNUCUDA işler: tarayıcı kapalı olsa da süre dolar ve
     // oyuncu adına oynanır. Eskiden sayaç yalnız istemcideydi; sekmesini
     // kapatanın süresi hiç dolmuyor, masa duruyordu.
