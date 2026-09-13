@@ -377,25 +377,25 @@ button.red{background:linear-gradient(180deg,#e0574f,#a83028);border-color:#f09a
     <button class="mbtn" data-m="serbest">Serbest</button>
   </div>
 
+  <!-- En çok kullanılan iki düğme (Desteden çek / At) sağ uçta yan yana.
+       Ok tuşları kaldırıldı; taş sürükleyerek zaten yer değiştiriyor. -->
   <div class="controls">
-    <button id="btnDeck">Desteden çek</button>
     <button id="btnTake" class="red">Yerden al</button>
     <button id="btnUndo">Geri bırak</button>
-    <button id="btnLeft">◀</button>
-    <button id="btnRight">▶</button>
-
     <button id="btnJoin">Yan yana getir</button>
-    <button id="btnSort">Seriye çevir</button>
+    <button id="btnDeck">Desteden çek</button>
+    <button id="btnDiscard" class="gold">At</button>
+
     <button id="btnSortP">Çift diz</button>
     <button id="btnOpen" class="gold">Seri Aç</button>
     <button id="btnOpenP" class="gold">Çift Aç</button>
+    <button id="btnSort">Seriye çevir</button>
+    <button id="btnScore">Puan tablosu</button>
     <span class="bosluk"></span>
 
     <button id="btnPut">Yere koy</button>
     <button id="btnCollect">Taşı topla</button>
     <button id="btnProcess">İşle</button>
-    <button id="btnScore">Puan tablosu</button>
-    <button id="btnDiscard" class="gold">At</button>
   </div>
   </div>
 
@@ -2813,7 +2813,6 @@ function render(){
   $('btnDiscard').disabled=!act;
   $('btnDiscard').textContent = ciftOkey ? 'Çift okey at' : 'At';
   $('btnDiscard').classList.toggle('red', ciftOkey);
-  $('btnLeft').disabled=$('btnRight').disabled=S.selected.size!==1;
   $('btnJoin').disabled=S.selected.size<2;
   $('btnSort').disabled=false;
   $('btnSortP').disabled=false;
@@ -3114,8 +3113,6 @@ $('btnDiscard').onclick=()=>{
   if(myTurn()&&S.phase==='act'&&me().opened&&!S.staging.length&&ciftOkeyVar(me())) doDoubleOkey();
   else doDiscard(false);
 };
-$('btnLeft').onclick=()=>shift(-1);
-$('btnRight').onclick=()=>shift(1);
 $('btnSort').onclick=()=>{ autoSort(me()); render(); };
 $('btnSortP').onclick=()=>{ sortPairs(me()); render(); };
 $('btnScore').onclick=showScores;

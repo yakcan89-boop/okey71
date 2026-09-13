@@ -388,32 +388,72 @@
     api.setSelf(v.seat);
     api.render();
     paintLog(v.log);
-    checkCloseButton(v.owner);
+    SAHIP = !!v.owner;
+    kapatMenusu(SAHIP, MASADA);
   }
 
-  // Oda sahibine oyun ekranında sağ üstte "Masayı Kapat" butonu ekler
-  function checkCloseButton(sahip) {
-    let btn = document.getElementById('btnCloseRoom');
-    if (sahip) {
-      if (!btn) {
-        btn = document.createElement('button');
-        btn.id = 'btnCloseRoom';
-        btn.textContent = 'Masayı Kapat';
-        btn.style.cssText = 'position:fixed;top:8px;right:8px;z-index:150;font-size:11px;font-weight:700;padding:5px 8px;border-radius:6px;border:1px solid #ffb4ae;background:rgba(224,87,79,0.85);color:#fff;cursor:pointer;';
-        btn.onclick = async () => {
-          if (confirm('Masayı kapatmak istediğine emin misin? Oyun herkes için sonlandırılacak.')) {
-            await post('/api/close', { code: CODE, pid: PID });
-            localStorage.removeItem('okey_code');
-            localStorage.removeItem('okey_pid');
-            location.reload();
-          }
-        };
-        document.body.appendChild(btn);
-      }
-    } else if (btn) {
-      btn.remove();
+  /* ---------- köşedeki X menüsü ----------
+     "Masadan ayrıl" ve "Masayı Kapat" ekranın iki köşesinde duruyordu ve
+     telefonda oda rozetiyle çakışıyorlardı. İkisi tek bir X düğmesinin
+     içine alındı; yanlışlıkla basılması da zorlaştı. */
+  function kapatMenusu(sahip, masada) {
+    let x = document.getElementById('btnMenu');
+    if (!masada && !sahip) { if (x) x.remove(); menuKapat(); return; }
+    if (!x) {
+      x = document.createElement('button');
+      x.id = 'btnMenu';
+      x.textContent = '✕';
+      x.style.cssText = 'position:fixed;top:8px;right:8px;z-index:150;' +
+        'width:32px;height:32px;border-radius:8px;font:900 15px/1 system-ui,sans-serif;' +
+        'border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.45);' +
+        'color:#eaf6ff;cursor:pointer';
+      x.onclick = () => {
+        const acik = document.getElementById('menuKutu');
+        if (acik) { menuKapat(); return; }
+        menuAc(sahip, masada);
+      };
+      document.body.appendChild(x);
     }
   }
+
+  function menuKapat() {
+    const k = document.getElementById('menuKutu');
+    if (k) k.remove();
+  }
+
+  function menuAc(sahip, masada) {
+    const k = document.createElement('div');
+    k.id = 'menuKutu';
+    k.style.cssText = 'position:fixed;top:46px;right:8px;z-index:151;padding:6px;' +
+      'border-radius:10px;background:rgba(10,32,52,.98);' +
+      'border:1px solid rgba(255,255,255,.22);box-shadow:0 8px 24px rgba(0,0,0,.5);' +
+      'display:flex;flex-direction:column;gap:5px;min-width:150px';
+    const dgm = (metin, fn, renk) => {
+      const b = document.createElement('button');
+      b.textContent = metin;
+      b.style.cssText = 'font:700 12.5px/1.2 "Trebuchet MS",Arial,sans-serif;' +
+        'padding:8px 10px;border-radius:7px;cursor:pointer;text-align:left;' +
+        'border:1px solid rgba(255,255,255,.25);background:' + (renk || 'rgba(255,255,255,.12)') +
+        ';color:#eaf6ff';
+      b.onclick = () => { menuKapat(); fn(); };
+      k.appendChild(b);
+    };
+    if (CODE) dgm('Oda kodu: ' + CODE, async () => {
+      try { await navigator.clipboard.writeText(CODE); flash(CODE + ' kopyalandı.'); }
+      catch (e) { flash('Oda kodu: ' + CODE); }
+    });
+    if (masada) dgm('Masadan ayrıl', () => ayril(true), 'rgba(224,87,79,.35)');
+    if (sahip) dgm('Masayı kapat', async () => {
+      if (!confirm('Masayı kapatmak istediğine emin misin? Oyun herkes için sonlandırılacak.')) return;
+      await post('/api/close', { code: CODE, pid: PID });
+      localStorage.removeItem('okey_code');
+      localStorage.removeItem('okey_pid');
+      location.reload();
+    }, 'rgba(224,87,79,.6)');
+    dgm('Vazgeç', () => {});
+    document.body.appendChild(k);
+  }
+
 
   function paintLog(lines) {
     const box = document.getElementById('log');
@@ -483,6 +523,7 @@
   let VER = -1, RUNNING = false, STOP = false;
   let READONLY = false;      // seyircide hiçbir hamle gönderilmez
   let SON_KACIRMA = 0;       // aynı uyarıyı üst üste basmamak için
+  let SAHIP = false, MASADA = false;   // X menüsü neyi göstersin
   let SEYIRCI = false;
 
   /* ---------- bağlantı rozeti ---------- */
@@ -506,8 +547,9 @@
   function showLost(msg, canRetry) {
     STOP = true;
     badge(null);
-    const cb = document.getElementById('btnCloseRoom');
+    const cb = document.getElementById('btnMenu');
     if (cb) cb.remove();
+    menuKapat();
     lob.style.display = '';
     lobbyHTML(
       '<div style="font-size:15px;line-height:1.6;margin-bottom:6px">' + msg + '</div>' +
@@ -738,22 +780,14 @@
     location.reload();
   }
 
-  // Oyun ekranında sol üstte "Masadan ayrıl" düğmesi
+  // Eski sol üst düğme kaldırıldı; ayrılma da kapatma da X menüsünde.
   function checkLeaveButton(goster) {
-    let btn = document.getElementById('btnLeaveRoom');
-    if (goster) {
-      if (!btn) {
-        btn = document.createElement('button');
-        btn.id = 'btnLeaveRoom';
-        btn.textContent = 'Masadan ayrıl';
-        btn.style.cssText = 'position:fixed;top:8px;left:8px;z-index:150;font-size:11px;font-weight:700;' +
-          'padding:5px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.3);' +
-          'background:rgba(0,0,0,.35);color:#eaf6ff;cursor:pointer;';
-        btn.onclick = () => ayril(true);
-        document.body.appendChild(btn);
-      }
-    } else if (btn) btn.remove();
+    const eski = document.getElementById('btnLeaveRoom');
+    if (eski) eski.remove();
+    MASADA = !!goster;
+    kapatMenusu(SAHIP, MASADA);
   }
+
 
   async function connect() {
     if (RUNNING) return;
