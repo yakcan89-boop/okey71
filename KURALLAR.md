@@ -664,6 +664,10 @@ Enter ya da **Gönder** ile yollanır.
 Ekranın altında değil ortasında durması bilinçli: kayıt alanı çok aşağıda
 kalıyordu, kimse görmüyordu.
 
+Panelde **en fazla iki mesaj** görünür ve boyu sabittir — mesaj biriktikçe
+ekranı aşağı itmez. Eskileri görmek için panel içinde yukarı kaydırılır.
+Yukarı kaydırmışken yeni mesaj gelirse ekran zorla aşağı çekilmez.
+
 **Sınırlar:**
 - Son **30 mesaj** tutulur, eskiler silinir.
 - Aynı kişi arka arkaya aynı şeyi yazamaz; iki mesaj arası en az **3 saniye**.

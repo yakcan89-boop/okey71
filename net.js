@@ -548,6 +548,9 @@
     const box = document.getElementById('chatLog');
     const liste = mesajlar || [];
     if (box) {
+      // Kullanıcı eski mesajları okumak için yukarı kaydırdıysa, yeni mesaj
+      // gelince ekranı zorla aşağı çekme.
+      const altta = box.scrollHeight - box.scrollTop - box.clientHeight < 6;
       box.innerHTML = '';
       liste.forEach(m => {
         const p = document.createElement('p');
@@ -559,7 +562,7 @@
         p.appendChild(document.createTextNode(m.metin));
         box.appendChild(p);
       });
-      box.scrollTop = box.scrollHeight;
+      if (altta) box.scrollTop = box.scrollHeight;
     }
 
     // Şerit kapalıyken son mesajı gösterir; okunmamış sayısı rozette birikir.

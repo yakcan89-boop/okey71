@@ -274,7 +274,10 @@ button.red{background:linear-gradient(180deg,#e0574f,#a83028);border-color:#f09a
 .chatpanel{margin-top:5px;padding:7px 8px;border-radius:9px;
   background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.14)}
 .chatpanel.hidden{display:none}
-.chatlog{max-height:84px;overflow-y:auto;font-size:12.5px;line-height:1.45}
+/* En fazla iki mesaj görünür; gerisi için kaydırılır. Panel bundan fazla
+   büyümez, ekranın altını aşağı itmez. */
+.chatlog{height:38px;overflow-y:auto;font-size:12.5px;line-height:1.45;
+  overscroll-behavior:contain}
 .chatlog p{margin:0 0 3px}
 .chatlog b{color:var(--gold)}
 .chatlog .sy{opacity:.55;font-weight:400;color:inherit}
