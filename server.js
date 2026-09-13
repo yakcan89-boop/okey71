@@ -24,6 +24,18 @@ const TAVSIYE_MS = 8000;     // eş tavsiyesi bu kadar beklerse "karışmam" say
 const BOT_MS     = 30000;    // bot koltuğu bu kadar takılırsa dürtülür
 const PERDE_MS   = 90000;    // el sonu perdesi bu kadar beklerse kendiliğinden geçilir
 const KACIRMA_SINIR = 3;     // üst üste bu kadar tur kaçıran masadan düşer
+
+/* ---------- sohbet ----------
+   Serbest metin YOK: istemci yalnız bu listenin sırasını yollar. Böylece
+   kaçırılmamış HTML, küfür, uzun mesaj ve taş söyleme derdi hiç doğmuyor.
+   Listede olmayan bir sıra gelirse atılır. */
+const SOHBET = [
+  'Seri olun', 'Tebrikler', 'Az kaldı', 'Tamam', 'Hayır',
+  'Bekliyorum', 'İyi oyun', 'Sağ ol', 'Bir dakika',
+  'Çıkıyorum', 'Tekrar oynayalım'
+];
+const SOHBET_MAX  = 30;      // eski mesajlar bunun üstünde silinir
+const SOHBET_ARA  = 3000;    // aynı kişi bu aralıktan sık yazamaz
 /* Süre KAPALIYKEN çalışan sessiz emniyet. Ekranda sayaç görünmez, kimse
    acele etmez; ama biri telefonu bırakıp giderse masa kilitlenmesin diye
    sunucu bu süreden sonra yine de oynatır ve bunu kaçırma sayar. */
@@ -68,6 +80,7 @@ function makeRoom(teams) {
     watchers: [],                      // {pid, name, lastSeen}
     owner: null,                       // oda sahibinin pid'i (koltuk değişse de sabit)
     sira: 0,                           // katılım sırası sayacı (sahiplik devri buna bakar)
+    sohbet: [],                        // {ad, i, seyirci, t} — oyun kaydından AYRI
     // Süre KAPALI başlar; oda sahibi isterse oyun içinde açar. Kapalıyken
     // sessiz emniyet (SESSIZ_MS) masayı korumaya devam eder.
     timerSec: 0,
@@ -351,6 +364,8 @@ function viewFor(room, seat) {
     seat,
     watcher: seat < 0,
     odaKodu: room.code,
+    sohbetSecenek: SOHBET,
+    sohbet: room.sohbet.map(m => ({ ad: m.ad, metin: SOHBET[m.i], seyirci: m.seyirci, t: m.t })),
     timerSec: room.timerSec || 0,
     // Sayaç sunucuda işliyor; istemci yalnız gösteriyor.
     // Süre kapalıyken sayaç GÖSTERİLMEZ; sessiz emniyet arkada işler.
@@ -821,6 +836,32 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Oda sahibi oturma isteğini onaylar ya da reddeder.
+  // Sohbet: hazır cümle numarası gelir, metin değil.
+  if (p === '/api/mesaj' && req.method === 'POST') {
+    const d = await readBody(req);
+    const room = rooms.get(String(d.code || '').toUpperCase());
+    if (!room) return send(res, 404, { err: 'Oda yok.' });
+    const i = parseInt(d.i, 10);
+    if (!(i >= 0 && i < SOHBET.length)) return send(res, 400, { err: 'Geçersiz mesaj.' });
+
+    const seat = seatOf(room, d.pid);
+    const wi = watcherOf(room, d.pid);
+    if (seat < 0 && wi < 0) return send(res, 403, { err: 'Masada değilsin.' });
+    const kisi = seat >= 0 ? room.seats[seat] : room.watchers[wi];
+    kisi.lastSeen = Date.now();
+
+    const son = room.sohbet[room.sohbet.length - 1];
+    const now = Date.now();
+    // Aynı kişi arka arkaya aynı cümleyi basmasın, ekranı doldurmasın.
+    if (son && son.pid === d.pid && (son.i === i || now - son.t < SOHBET_ARA))
+      return send(res, 200, { ok: true, atlandi: true });
+
+    room.sohbet.push({ pid: d.pid, ad: kisi.name, i, seyirci: seat < 0, t: now });
+    if (room.sohbet.length > SOHBET_MAX) room.sohbet.shift();
+    push(room);
+    return send(res, 200, { ok: true });
+  }
+
   // Tur süresi masanın ortak ayarıdır; yalnız oda sahibi değiştirir.
   if (p === '/api/sure' && req.method === 'POST') {
     const d = await readBody(req);

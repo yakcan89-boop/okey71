@@ -388,6 +388,8 @@
     api.setSelf(v.seat);
     api.render();
     paintLog(v.log);
+    chatKur(v.sohbetSecenek);
+    paintChat(v.sohbet);
     SAHIP = !!v.owner;
     kapatMenusu(SAHIP, MASADA);
   }
@@ -454,6 +456,98 @@
     document.body.appendChild(k);
   }
 
+
+  /* ---------- sohbet ----------
+     Serbest metin yok: hazır cümlenin SIRASI yollanıyor. Mesajlar oyun
+     kaydıyla aynı alanı paylaşıyor, sekmeyle geçiliyor. */
+  let CHAT_ACIK = false, CHAT_GOR = 0, CHAT_LEVHA = false;
+
+  function chatKur(secenekler) {
+    const tabs = document.getElementById('logTabs');
+    if (tabs) tabs.classList.remove('hidden');
+    const cb = document.getElementById('btnChat');
+    if (cb) cb.classList.remove('hidden');
+
+    const tl = document.getElementById('tabLog'), tc = document.getElementById('tabChat');
+    if (tl && !tl.onclick) tl.onclick = () => chatSekme(false);
+    if (tc && !tc.onclick) tc.onclick = () => chatSekme(true);
+
+    // Hazır cümle levhası bir kez kurulur.
+    const bar = document.getElementById('chatBar');
+    if (bar && !bar.childElementCount && secenekler && secenekler.length) {
+      secenekler.forEach((metin, i) => {
+        const b = document.createElement('button');
+        b.textContent = metin;
+        b.onclick = async () => {
+          chatLevha(false);
+          const r = await post('/api/mesaj', { code: CODE, pid: PID, i });
+          if (r && r.err) flash(r.err);
+        };
+        bar.appendChild(b);
+      });
+      const kapat = document.createElement('button');
+      kapat.textContent = 'Kapat';
+      kapat.onclick = () => chatLevha(false);
+      bar.appendChild(kapat);
+    }
+    if (cb && !cb.onclick) cb.onclick = () => chatLevha(!CHAT_LEVHA);
+  }
+
+  function chatLevha(ac) {
+    CHAT_LEVHA = !!ac;
+    const bar = document.getElementById('chatBar');
+    if (bar) bar.classList.toggle('hidden', !CHAT_LEVHA);
+  }
+
+  function chatSekme(sohbet) {
+    CHAT_ACIK = !!sohbet;
+    const l = document.getElementById('log'), c = document.getElementById('chatLog');
+    const tl = document.getElementById('tabLog'), tc = document.getElementById('tabChat');
+    if (l) l.classList.toggle('hidden', CHAT_ACIK);
+    if (c) c.classList.toggle('hidden', !CHAT_ACIK);
+    if (tl) tl.classList.toggle('on', !CHAT_ACIK);
+    if (tc) tc.classList.toggle('on', CHAT_ACIK);
+    if (CHAT_ACIK) chatOkundu();
+  }
+
+  function chatOkundu() {
+    CHAT_GOR = SON_CHAT;
+    const u = document.getElementById('chatUnread');
+    if (u) { u.textContent = ''; u.classList.add('hidden'); }
+  }
+
+  let SON_CHAT = 0;
+  function paintChat(mesajlar) {
+    const box = document.getElementById('chatLog');
+    if (!box) return;
+    box.innerHTML = '';
+    (mesajlar || []).forEach(m => {
+      const p = document.createElement('p');
+      const b = document.createElement('b');
+      b.textContent = m.ad + (m.seyirci ? ' (seyirci)' : '') + ': ';
+      if (m.seyirci) b.className = 'sy';
+      p.appendChild(b);
+      // textContent ile basılıyor: hazır cümle olsa da HTML gömülmesin.
+      p.appendChild(document.createTextNode(m.metin));
+      box.appendChild(p);
+    });
+    box.scrollTop = box.scrollHeight;
+
+    const yeni = (mesajlar || []).length;
+    if (CHAT_ACIK) { SON_CHAT = yeni; chatOkundu(); return; }
+    // Sohbet sekmesi kapalıysa okunmamış sayısı rozette birikir.
+    if (yeni > SON_CHAT) {
+      const son = mesajlar[yeni - 1];
+      if (son) flash(son.ad + ': ' + son.metin);
+    }
+    SON_CHAT = yeni;
+    const kac = Math.max(0, SON_CHAT - CHAT_GOR);
+    const u = document.getElementById('chatUnread');
+    if (u) {
+      u.textContent = kac > 9 ? '9+' : String(kac);
+      u.classList.toggle('hidden', kac === 0);
+    }
+  }
 
   function paintLog(lines) {
     const box = document.getElementById('log');

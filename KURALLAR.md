@@ -640,7 +640,32 @@ devreye girer (§12.1).
 
 ---
 
-## 12.7 Kayıt defteri ve adlar
+## 12.7 Sohbet
+
+Sohbet **hazır cümlelerle** yapılır; serbest metin yoktur:
+
+> Seri olun · Tebrikler · Az kaldı · Tamam · Hayır · Bekliyorum ·
+> İyi oyun · Sağ ol · Bir dakika · Çıkıyorum · Tekrar oynayalım
+
+Sebebi oyunun gizliliği: serbest metinle taş söylenebilir. İstemci sunucuya
+metin değil **cümlenin sırasını** yollar; listede olmayan bir sıra atılır.
+
+**Nerede:** kayıt alanı iki sekmelidir — **Oyun** ve **Sohbet**. Sohbet
+sekmesinde okunmamış mesaj sayısı bir rozette görünür. Yazmak için kumandadaki
+**Sohbet** düğmesine basılır, hazır cümleler levha olarak açılır.
+
+**Sınırlar:**
+- Son **30 mesaj** tutulur, eskiler silinir.
+- Aynı kişi arka arkaya aynı cümleyi basamaz; iki mesaj arası en az **3 saniye**.
+- **Seyirciler de yazabilir**, adlarının yanında "(seyirci)" görünür.
+- Masada olmayan yazamaz.
+
+Sohbet oyun kaydından **ayrı** tutulur; kayıttaki koltuk süzgeci ve kırpma
+kurallarına karışmaz.
+
+---
+
+## 12.8 Kayıt defteri ve adlar
 
 Alttaki kayıt masanın **ortak defteridir**; orada gizli bilgi durmaz.
 

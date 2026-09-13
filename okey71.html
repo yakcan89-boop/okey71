@@ -254,6 +254,22 @@ button.gold{background:linear-gradient(180deg,var(--gold),var(--goldDark));borde
 button.red{background:linear-gradient(180deg,#e0574f,#a83028);border-color:#f09a94}
 
 .log{height:72px;overflow-y:auto;font-size:12px;line-height:1.5;opacity:.75;border-top:1px solid rgba(255,255,255,.15);padding-top:6px}
+.log.hidden{display:none}
+.logtabs{display:flex;gap:4px;margin-top:6px;border-top:1px solid rgba(255,255,255,.15);padding-top:6px}
+.logtabs.hidden{display:none}
+.ltab{font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px 6px 0 0;
+  border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);
+  color:rgba(234,246,255,.6);cursor:pointer;position:relative}
+.ltab.on{background:rgba(245,195,59,.18);border-color:rgba(245,195,59,.45);color:#ffe6a6}
+.unread{margin-left:5px;background:var(--gold);color:#3a2503;border-radius:8px;
+  padding:0 5px;font-size:10px;font-weight:900}
+.unread.hidden{display:none}
+.chatbar{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.chatbar.hidden{display:none}
+.chatbar button{font-size:12px;padding:6px 10px;border-radius:14px}
+#chatLog p{margin:0 0 3px}
+#chatLog b{color:var(--gold)}
+#chatLog .sy{opacity:.55;font-weight:400}
 .log p{margin:0 0 2px}
 .log p.b{opacity:1;font-weight:700;color:var(--gold)}
 
@@ -396,10 +412,19 @@ button.red{background:linear-gradient(180deg,#e0574f,#a83028);border-color:#f09a
     <button id="btnPut">Yere koy</button>
     <button id="btnCollect">Taşı topla</button>
     <button id="btnProcess">İşle</button>
+    <button id="btnChat" class="hidden">Sohbet</button>
   </div>
   </div>
 
+  <!-- Kayıt alanı iki sekmeli: oyun kaydı ve sohbet. Yeni yer açmadan,
+       aynı alanı paylaşarak. Sekmeler yalnız ağ oyununda görünür. -->
+  <div class="logtabs hidden" id="logTabs">
+    <button class="ltab on" id="tabLog">Oyun</button>
+    <button class="ltab" id="tabChat">Sohbet<span class="unread hidden" id="chatUnread"></span></button>
+  </div>
   <div class="log" id="log"></div>
+  <div class="log hidden" id="chatLog"></div>
+  <div class="chatbar hidden" id="chatBar"></div>
 </div>
 
 <div class="veil hidden" id="veil">
