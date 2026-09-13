@@ -1453,12 +1453,23 @@ function botDraw(p,next){
 
 function botPlay(p){
   if(S.over) return;
-  // Takımdaki her bot (hangi koltukta olursa olsun) eşine bir kez emir yollar.
+  /* Takımdaki her bot eşine bir kez emir yollar.
+
+     Bot eşine ASLA "çifte git" demez. İki sebeple:
+     - Eşinin elini görmüyor; çift kurup kuramayacağını bilemez.
+     - Kendi çifte gidiyorsa eşinin de gitmesi ikisini de batırır — aynı
+       taş havuzundan iki kişi 5-7 çift toplayamaz.
+     Kendi çifte gidiyorsa eşinden istediği şey zaman kazanmaktır:
+     karşıyı açtırmasın. "Çifte git" emrini yalnız İNSAN verebilir; o
+     kendi elini gördüğü için bilerek karar verir. */
   if(S.teams&&!p.opened&&!p.sentMsg&&S.players[mateOf(p.i)]&&!S.players[mateOf(p.i)].opened){
     const pc=pairCount(p.hand), pt=pack(p.hand,'points').points;
-    if(pc>=5){ botEmirVer(p,'cift',`${pc} çiftim var — sen de çifte git.`); p.sentMsg=1; }
-    else if(pt>=threshold()){ botEmirVer(p,'tasla','Elim açar, sen taşla.'); p.sentMsg=1; }
-    else if(pc>=4){ botEmirVer(p,'topla','Çifte gidiyorum, sen topla.'); p.sentMsg=1; }
+    if(pc>=4){
+      botEmirVer(p,'actirma',`${pc} çiftim var, çifte gidiyorum — sen karşıyı açtırma.`);
+      p.sentMsg=1;
+    } else if(pt>=threshold()){
+      botEmirVer(p,'tasla','Elim açar, sen taşla.'); p.sentMsg=1;
+    }
   }
   {
     if(p.pairs&&!p.opened){

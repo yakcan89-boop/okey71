@@ -508,7 +508,13 @@ istiyor."*
 
 - Emirler **koltuk başına** tutulur, iki takımın kanalı ayrıdır.
 - Hem botlar hem insanlar emir alır ve emir verir. Bot, eli uygunsa eşine
-  kendiliğinden emir yollar ("5 çiftim var — sen de çifte git.").
+  kendiliğinden emir yollar.
+- **Bot eşine asla "çifte git" demez.** Eşinin elini görmez, çift kurup
+  kuramayacağını bilemez; üstelik kendisi çifte gidiyorsa eşinin de gitmesi
+  ikisini birden batırır — aynı taş havuzundan iki kişi 5-7 çift toplayamaz.
+  Kendi çifte gidiyorsa eşinden zaman ister: *"4 çiftim var, çifte gidiyorum —
+  sen karşıyı açtırma."* **"Çifte git" emrini yalnız insan verebilir**, çünkü
+  kendi elini görerek karar verir.
 - Aynı düğmeye ikinci kez basmak emri kaldırır.
 - "Taşla" emri bile **işlek taş attırmaz**: 71 ceza yazdıracağı için bot o taşa
   dokunmaz. İnsan oyuncu zaten atarken uyarı alır.
