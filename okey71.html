@@ -255,21 +255,33 @@ button.red{background:linear-gradient(180deg,#e0574f,#a83028);border-color:#f09a
 
 .log{height:72px;overflow-y:auto;font-size:12px;line-height:1.5;opacity:.75;border-top:1px solid rgba(255,255,255,.15);padding-top:6px}
 .log.hidden{display:none}
-.logtabs{display:flex;gap:4px;margin-top:6px;border-top:1px solid rgba(255,255,255,.15);padding-top:6px}
-.logtabs.hidden{display:none}
-.ltab{font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px 6px 0 0;
-  border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);
-  color:rgba(234,246,255,.6);cursor:pointer;position:relative}
-.ltab.on{background:rgba(245,195,59,.18);border-color:rgba(245,195,59,.45);color:#ffe6a6}
-.unread{margin-left:5px;background:var(--gold);color:#3a2503;border-radius:8px;
-  padding:0 5px;font-size:10px;font-weight:900}
+
+.chatwrap{margin-bottom:8px}
+.chatwrap.hidden{display:none}
+.chatstrip{display:flex;align-items:center;gap:8px;width:100%;
+  padding:6px 10px;border-radius:9px;cursor:pointer;text-align:left;
+  background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(0,0,0,.2));
+  border:1px solid rgba(255,255,255,.14);color:#eaf6ff;
+  font:700 12px/1.2 "Trebuchet MS",Arial,sans-serif}
+.chatstrip .ck{font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  opacity:.65;flex:0 0 auto}
+.chatstrip .cson{flex:1 1 auto;min-width:0;font-weight:400;opacity:.85;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chatstrip.acik{border-color:rgba(245,195,59,.5);background:rgba(245,195,59,.14)}
+.unread{background:var(--gold);color:#3a2503;border-radius:8px;
+  padding:0 6px;font-size:10px;font-weight:900;flex:0 0 auto}
 .unread.hidden{display:none}
-.chatbar{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-.chatbar.hidden{display:none}
+.chatpanel{margin-top:5px;padding:7px 8px;border-radius:9px;
+  background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.14)}
+.chatpanel.hidden{display:none}
+.chatlog{max-height:84px;overflow-y:auto;font-size:12.5px;line-height:1.45}
+.chatlog p{margin:0 0 3px}
+.chatlog b{color:var(--gold)}
+.chatlog .sy{opacity:.55;font-weight:400;color:inherit}
+.chatbar{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;align-items:center}
 .chatbar button{font-size:12px;padding:6px 10px;border-radius:14px}
-#chatLog p{margin:0 0 3px}
-#chatLog b{color:var(--gold)}
-#chatLog .sy{opacity:.55;font-weight:400}
+.sayac{font-size:11px;opacity:.55;min-width:22px;text-align:right}
+.sayac.az{color:#ffb4ae;opacity:1;font-weight:700}
 .log p{margin:0 0 2px}
 .log p.b{opacity:1;font-weight:700;color:var(--gold)}
 
@@ -370,6 +382,20 @@ button.red{background:linear-gradient(180deg,#e0574f,#a83028);border-color:#f09a
     <div class="fslot" id="fsTake"></div>
     <div class="fslot" id="fsMine"></div>
   </div>
+
+  <!-- Sohbet, atılan taş satırının hemen altında: ekranın ortasında, göz
+       hizasında. Şeride basınca açılır, tekrar basınca kapanır. -->
+  <div class="chatwrap hidden" id="chatWrap">
+    <button class="chatstrip" id="chatToggle">
+      <span class="ck">Sohbet</span>
+      <span class="cson" id="chatSon">—</span>
+      <span class="unread hidden" id="chatUnread"></span>
+    </button>
+    <div class="chatpanel hidden" id="chatPanel">
+      <div class="chatlog" id="chatLog"></div>
+      <div class="chatbar" id="chatBar"></div>
+    </div>
+  </div>
   </div>
 
   <div class="handzone">
@@ -412,19 +438,10 @@ button.red{background:linear-gradient(180deg,#e0574f,#a83028);border-color:#f09a
     <button id="btnPut">Yere koy</button>
     <button id="btnCollect">Taşı topla</button>
     <button id="btnProcess">İşle</button>
-    <button id="btnChat" class="hidden">Sohbet</button>
   </div>
   </div>
 
-  <!-- Kayıt alanı iki sekmeli: oyun kaydı ve sohbet. Yeni yer açmadan,
-       aynı alanı paylaşarak. Sekmeler yalnız ağ oyununda görünür. -->
-  <div class="logtabs hidden" id="logTabs">
-    <button class="ltab on" id="tabLog">Oyun</button>
-    <button class="ltab" id="tabChat">Sohbet<span class="unread hidden" id="chatUnread"></span></button>
-  </div>
   <div class="log" id="log"></div>
-  <div class="log hidden" id="chatLog"></div>
-  <div class="chatbar hidden" id="chatBar"></div>
 </div>
 
 <div class="veil hidden" id="veil">

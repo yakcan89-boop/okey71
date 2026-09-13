@@ -646,19 +646,23 @@ devreye girer (§12.1).
 
 - **Hazır cümle:** *Seri lütfen* · *Tebrikler*. İstemci metin değil cümlenin
   sırasını yollar; listede olmayan sıra atılır.
-- **Kısa yazı:** en fazla **25 karakter**, tek satır. Uzunu kırpılır.
+- **Kısa yazı:** en fazla **35 karakter**, tek satır. Yazdıkça kalan sayı
+  görünür, son 8 karakterde kırmızıya döner. Uzunu kırpılır.
 
-Neden kısa: oyunda gizlilik esastır, uzun cümleyle taş söylenebilir. 25 karakter
+Neden kısa: oyunda gizlilik esastır, uzun cümleyle taş söylenebilir. 35 karakter
 "tamam", "bekle", "sen aç" gibi şeylere yeter, taş tarif etmeye yetmez.
 
 Yazılan metin sunucuda **temizlenir**: satır sonları ve fazla boşluk atılır,
 HTML'e yarayan işaretler (`< > & " ' \``) silinir, sonra kırpılır. Ekrana da
 `textContent` ile basılır.
 
-**Nerede:** kayıt alanı iki sekmelidir — **Oyun** ve **Sohbet**. Sohbet
-sekmesinde okunmamış mesaj sayısı bir rozette görünür. Yazmak için kumandadaki
-**Sohbet** düğmesine basılır; iki hazır cümle ve yazı kutusu levha olarak
-açılır. Enter ya da Gönder ile yollanır.
+**Nerede:** atılan taş satırının **hemen altında** bir şerit. Kapalıyken son
+mesajı gösterir ve okunmamış sayısı rozette durur. Şeride basınca açılır:
+mesaj listesi, iki hazır cümle ve yazı kutusu. Tekrar basınca kapanır.
+Enter ya da **Gönder** ile yollanır.
+
+Ekranın altında değil ortasında durması bilinçli: kayıt alanı çok aşağıda
+kalıyordu, kimse görmüyordu.
 
 **Sınırlar:**
 - Son **30 mesaj** tutulur, eskiler silinir.

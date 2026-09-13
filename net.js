@@ -459,84 +459,83 @@
 
 
   /* ---------- sohbet ----------
-     Serbest metin yok: hazır cümlenin SIRASI yollanıyor. Mesajlar oyun
-     kaydıyla aynı alanı paylaşıyor, sekmeyle geçiliyor. */
-  let CHAT_ACIK = false, CHAT_GOR = 0, CHAT_LEVHA = false, CHAT_UZUN = 25;
+     Atılan taş satırının hemen altında bir şerit. Kapalıyken son mesajı
+     gösterir, basınca açılır. Serbest metin en fazla CHAT_UZUN karakter;
+     yazdıkça kalan sayı görünür. */
+  let CHAT_ACIK = false, CHAT_GOR = 0, SON_CHAT = 0, CHAT_UZUN = 35;
 
   function chatKur(secenekler) {
-    const tabs = document.getElementById('logTabs');
-    if (tabs) tabs.classList.remove('hidden');
-    const cb = document.getElementById('btnChat');
-    if (cb) cb.classList.remove('hidden');
+    const w = document.getElementById('chatWrap');
+    if (w) w.classList.remove('hidden');
 
-    const tl = document.getElementById('tabLog'), tc = document.getElementById('tabChat');
-    if (tl && !tl.onclick) tl.onclick = () => chatSekme(false);
-    if (tc && !tc.onclick) tc.onclick = () => chatSekme(true);
+    const t = document.getElementById('chatToggle');
+    if (t && !t.onclick) t.onclick = () => chatAc(!CHAT_ACIK);
 
-    // Levha bir kez kurulur: iki hazır cümle + kısa yazı kutusu.
     const bar = document.getElementById('chatBar');
-    if (bar && !bar.childElementCount) {
-      (secenekler || []).forEach((metin, i) => {
-        const b = document.createElement('button');
-        b.textContent = metin;
-        b.onclick = async () => {
-          chatLevha(false);
-          const r = await post('/api/mesaj', { code: CODE, pid: PID, i });
-          if (r && r.err) flash(r.err);
-        };
-        bar.appendChild(b);
-      });
+    if (!bar || bar.childElementCount) return;
 
-      const kutu = document.createElement('input');
-      kutu.id = 'chatInput';
-      kutu.type = 'text';
-      kutu.maxLength = CHAT_UZUN;
-      kutu.placeholder = 'Kısa mesaj (' + CHAT_UZUN + ' harf)';
-      kutu.style.cssText = 'flex:1;min-width:120px;font:400 12.5px/1.2 inherit;' +
-        'padding:6px 9px;border-radius:14px;border:1px solid rgba(255,255,255,.25);' +
-        'background:rgba(0,0,0,.3);color:#eaf6ff';
-      const yolla = async () => {
-        const metin = kutu.value.trim();
-        if (!metin) return;
-        kutu.value = '';
-        chatLevha(false);
-        const r = await post('/api/mesaj', { code: CODE, pid: PID, metin });
+    (secenekler || []).forEach((metin, i) => {
+      const b = document.createElement('button');
+      b.textContent = metin;
+      b.onclick = async () => {
+        const r = await post('/api/mesaj', { code: CODE, pid: PID, i });
         if (r && r.err) flash(r.err);
       };
-      kutu.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); yolla(); } };
-      bar.appendChild(kutu);
+      bar.appendChild(b);
+    });
 
-      const gonder = document.createElement('button');
-      gonder.textContent = 'Gönder';
-      gonder.className = 'gold';
-      gonder.onclick = yolla;
-      bar.appendChild(gonder);
+    const kutu = document.createElement('input');
+    kutu.id = 'chatInput';
+    kutu.type = 'text';
+    kutu.maxLength = CHAT_UZUN;
+    kutu.placeholder = 'Kısa mesaj';
+    kutu.style.cssText = 'flex:1 1 110px;min-width:90px;font:400 12.5px/1.2 inherit;' +
+      'padding:6px 9px;border-radius:14px;border:1px solid rgba(255,255,255,.25);' +
+      'background:rgba(0,0,0,.3);color:#eaf6ff';
 
-      const kapat = document.createElement('button');
-      kapat.textContent = 'Kapat';
-      kapat.onclick = () => chatLevha(false);
-      bar.appendChild(kapat);
+    const sayac = document.createElement('span');
+    sayac.className = 'sayac';
+    sayac.id = 'chatSayac';
+    const say = () => {
+      const kalan = CHAT_UZUN - kutu.value.length;
+      sayac.textContent = String(kalan);
+      sayac.classList.toggle('az', kalan <= 8);
+    };
+    say();
+
+    const yolla = async () => {
+      const metin = kutu.value.trim();
+      if (!metin) return;
+      kutu.value = ''; say();
+      const r = await post('/api/mesaj', { code: CODE, pid: PID, metin });
+      if (r && r.err) flash(r.err);
+    };
+    kutu.oninput = say;
+    kutu.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); yolla(); } };
+
+    bar.appendChild(kutu);
+    bar.appendChild(sayac);
+
+    const gonder = document.createElement('button');
+    gonder.textContent = 'Gönder';
+    gonder.className = 'gold';
+    gonder.onclick = yolla;
+    bar.appendChild(gonder);
+  }
+
+  function chatAc(ac) {
+    CHAT_ACIK = !!ac;
+    const p = document.getElementById('chatPanel');
+    const t = document.getElementById('chatToggle');
+    if (p) p.classList.toggle('hidden', !CHAT_ACIK);
+    if (t) t.classList.toggle('acik', CHAT_ACIK);
+    if (CHAT_ACIK) {
+      chatOkundu();
+      const k = document.getElementById('chatInput');
+      if (k) k.focus();
+      const box = document.getElementById('chatLog');
+      if (box) box.scrollTop = box.scrollHeight;
     }
-    if (cb && !cb.onclick) cb.onclick = () => chatLevha(!CHAT_LEVHA);
-  }
-
-  function chatLevha(ac) {
-    CHAT_LEVHA = !!ac;
-    const bar = document.getElementById('chatBar');
-    if (bar) bar.classList.toggle('hidden', !CHAT_LEVHA);
-    const kutu = document.getElementById('chatInput');
-    if (CHAT_LEVHA && kutu) kutu.focus();
-  }
-
-  function chatSekme(sohbet) {
-    CHAT_ACIK = !!sohbet;
-    const l = document.getElementById('log'), c = document.getElementById('chatLog');
-    const tl = document.getElementById('tabLog'), tc = document.getElementById('tabChat');
-    if (l) l.classList.toggle('hidden', CHAT_ACIK);
-    if (c) c.classList.toggle('hidden', !CHAT_ACIK);
-    if (tl) tl.classList.toggle('on', !CHAT_ACIK);
-    if (tc) tc.classList.toggle('on', CHAT_ACIK);
-    if (CHAT_ACIK) chatOkundu();
   }
 
   function chatOkundu() {
@@ -545,30 +544,31 @@
     if (u) { u.textContent = ''; u.classList.add('hidden'); }
   }
 
-  let SON_CHAT = 0;
   function paintChat(mesajlar) {
     const box = document.getElementById('chatLog');
-    if (!box) return;
-    box.innerHTML = '';
-    (mesajlar || []).forEach(m => {
-      const p = document.createElement('p');
-      const b = document.createElement('b');
-      b.textContent = m.ad + (m.seyirci ? ' (seyirci)' : '') + ': ';
-      if (m.seyirci) b.className = 'sy';
-      p.appendChild(b);
-      // textContent ile basılıyor: hazır cümle olsa da HTML gömülmesin.
-      p.appendChild(document.createTextNode(m.metin));
-      box.appendChild(p);
-    });
-    box.scrollTop = box.scrollHeight;
-
-    const yeni = (mesajlar || []).length;
-    if (CHAT_ACIK) { SON_CHAT = yeni; chatOkundu(); return; }
-    // Sohbet sekmesi kapalıysa okunmamış sayısı rozette birikir.
-    if (yeni > SON_CHAT) {
-      const son = mesajlar[yeni - 1];
-      if (son) flash(son.ad + ': ' + son.metin);
+    const liste = mesajlar || [];
+    if (box) {
+      box.innerHTML = '';
+      liste.forEach(m => {
+        const p = document.createElement('p');
+        const b = document.createElement('b');
+        b.textContent = m.ad + (m.seyirci ? ' (seyirci)' : '') + ': ';
+        if (m.seyirci) b.className = 'sy';
+        p.appendChild(b);
+        // textContent: metin sunucuda temizlense de burada HTML olarak yorumlanmaz.
+        p.appendChild(document.createTextNode(m.metin));
+        box.appendChild(p);
+      });
+      box.scrollTop = box.scrollHeight;
     }
+
+    // Şerit kapalıyken son mesajı gösterir; okunmamış sayısı rozette birikir.
+    const son = liste[liste.length - 1];
+    const cs = document.getElementById('chatSon');
+    if (cs) cs.textContent = son ? (son.ad + ': ' + son.metin) : '—';
+
+    const yeni = liste.length;
+    if (CHAT_ACIK) { SON_CHAT = yeni; chatOkundu(); return; }
     SON_CHAT = yeni;
     const kac = Math.max(0, SON_CHAT - CHAT_GOR);
     const u = document.getElementById('chatUnread');

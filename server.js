@@ -32,7 +32,7 @@ const KACIRMA_SINIR = 3;     // üst üste bu kadar tur kaçıran masadan düşe
 const SOHBET = ['Seri lütfen', 'Tebrikler'];
 const SOHBET_MAX  = 30;      // eski mesajlar bunun üstünde silinir
 const SOHBET_ARA  = 3000;    // aynı kişi bu aralıktan sık yazamaz
-const SOHBET_UZUN = 25;      // serbest mesajda en fazla bu kadar karakter
+const SOHBET_UZUN = 35;      // serbest mesajda en fazla bu kadar karakter
 /* Süre KAPALIYKEN çalışan sessiz emniyet. Ekranda sayaç görünmez, kimse
    acele etmez; ama biri telefonu bırakıp giderse masa kilitlenmesin diye
    sunucu bu süreden sonra yine de oynatır ve bunu kaçırma sayar. */
