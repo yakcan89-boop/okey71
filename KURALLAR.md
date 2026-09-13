@@ -642,21 +642,27 @@ devreye girer (§12.1).
 
 ## 12.7 Sohbet
 
-Sohbet **hazır cümlelerle** yapılır; serbest metin yoktur:
+İki yol vardır:
 
-> Seri olun · Tebrikler · Az kaldı · Tamam · Hayır · Bekliyorum ·
-> İyi oyun · Sağ ol · Bir dakika · Çıkıyorum · Tekrar oynayalım
+- **Hazır cümle:** *Seri lütfen* · *Tebrikler*. İstemci metin değil cümlenin
+  sırasını yollar; listede olmayan sıra atılır.
+- **Kısa yazı:** en fazla **25 karakter**, tek satır. Uzunu kırpılır.
 
-Sebebi oyunun gizliliği: serbest metinle taş söylenebilir. İstemci sunucuya
-metin değil **cümlenin sırasını** yollar; listede olmayan bir sıra atılır.
+Neden kısa: oyunda gizlilik esastır, uzun cümleyle taş söylenebilir. 25 karakter
+"tamam", "bekle", "sen aç" gibi şeylere yeter, taş tarif etmeye yetmez.
+
+Yazılan metin sunucuda **temizlenir**: satır sonları ve fazla boşluk atılır,
+HTML'e yarayan işaretler (`< > & " ' \``) silinir, sonra kırpılır. Ekrana da
+`textContent` ile basılır.
 
 **Nerede:** kayıt alanı iki sekmelidir — **Oyun** ve **Sohbet**. Sohbet
 sekmesinde okunmamış mesaj sayısı bir rozette görünür. Yazmak için kumandadaki
-**Sohbet** düğmesine basılır, hazır cümleler levha olarak açılır.
+**Sohbet** düğmesine basılır; iki hazır cümle ve yazı kutusu levha olarak
+açılır. Enter ya da Gönder ile yollanır.
 
 **Sınırlar:**
 - Son **30 mesaj** tutulur, eskiler silinir.
-- Aynı kişi arka arkaya aynı cümleyi basamaz; iki mesaj arası en az **3 saniye**.
+- Aynı kişi arka arkaya aynı şeyi yazamaz; iki mesaj arası en az **3 saniye**.
 - **Seyirciler de yazabilir**, adlarının yanında "(seyirci)" görünür.
 - Masada olmayan yazamaz.
 

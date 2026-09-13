@@ -388,6 +388,7 @@
     api.setSelf(v.seat);
     api.render();
     paintLog(v.log);
+    if (v.sohbetUzun) CHAT_UZUN = v.sohbetUzun;
     chatKur(v.sohbetSecenek);
     paintChat(v.sohbet);
     SAHIP = !!v.owner;
@@ -460,7 +461,7 @@
   /* ---------- sohbet ----------
      Serbest metin yok: hazır cümlenin SIRASI yollanıyor. Mesajlar oyun
      kaydıyla aynı alanı paylaşıyor, sekmeyle geçiliyor. */
-  let CHAT_ACIK = false, CHAT_GOR = 0, CHAT_LEVHA = false;
+  let CHAT_ACIK = false, CHAT_GOR = 0, CHAT_LEVHA = false, CHAT_UZUN = 25;
 
   function chatKur(secenekler) {
     const tabs = document.getElementById('logTabs');
@@ -472,10 +473,10 @@
     if (tl && !tl.onclick) tl.onclick = () => chatSekme(false);
     if (tc && !tc.onclick) tc.onclick = () => chatSekme(true);
 
-    // Hazır cümle levhası bir kez kurulur.
+    // Levha bir kez kurulur: iki hazır cümle + kısa yazı kutusu.
     const bar = document.getElementById('chatBar');
-    if (bar && !bar.childElementCount && secenekler && secenekler.length) {
-      secenekler.forEach((metin, i) => {
+    if (bar && !bar.childElementCount) {
+      (secenekler || []).forEach((metin, i) => {
         const b = document.createElement('button');
         b.textContent = metin;
         b.onclick = async () => {
@@ -485,6 +486,32 @@
         };
         bar.appendChild(b);
       });
+
+      const kutu = document.createElement('input');
+      kutu.id = 'chatInput';
+      kutu.type = 'text';
+      kutu.maxLength = CHAT_UZUN;
+      kutu.placeholder = 'Kısa mesaj (' + CHAT_UZUN + ' harf)';
+      kutu.style.cssText = 'flex:1;min-width:120px;font:400 12.5px/1.2 inherit;' +
+        'padding:6px 9px;border-radius:14px;border:1px solid rgba(255,255,255,.25);' +
+        'background:rgba(0,0,0,.3);color:#eaf6ff';
+      const yolla = async () => {
+        const metin = kutu.value.trim();
+        if (!metin) return;
+        kutu.value = '';
+        chatLevha(false);
+        const r = await post('/api/mesaj', { code: CODE, pid: PID, metin });
+        if (r && r.err) flash(r.err);
+      };
+      kutu.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); yolla(); } };
+      bar.appendChild(kutu);
+
+      const gonder = document.createElement('button');
+      gonder.textContent = 'Gönder';
+      gonder.className = 'gold';
+      gonder.onclick = yolla;
+      bar.appendChild(gonder);
+
       const kapat = document.createElement('button');
       kapat.textContent = 'Kapat';
       kapat.onclick = () => chatLevha(false);
@@ -497,6 +524,8 @@
     CHAT_LEVHA = !!ac;
     const bar = document.getElementById('chatBar');
     if (bar) bar.classList.toggle('hidden', !CHAT_LEVHA);
+    const kutu = document.getElementById('chatInput');
+    if (CHAT_LEVHA && kutu) kutu.focus();
   }
 
   function chatSekme(sohbet) {

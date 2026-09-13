@@ -29,13 +29,10 @@ const KACIRMA_SINIR = 3;     // üst üste bu kadar tur kaçıran masadan düşe
    Serbest metin YOK: istemci yalnız bu listenin sırasını yollar. Böylece
    kaçırılmamış HTML, küfür, uzun mesaj ve taş söyleme derdi hiç doğmuyor.
    Listede olmayan bir sıra gelirse atılır. */
-const SOHBET = [
-  'Seri olun', 'Tebrikler', 'Az kaldı', 'Tamam', 'Hayır',
-  'Bekliyorum', 'İyi oyun', 'Sağ ol', 'Bir dakika',
-  'Çıkıyorum', 'Tekrar oynayalım'
-];
+const SOHBET = ['Seri lütfen', 'Tebrikler'];
 const SOHBET_MAX  = 30;      // eski mesajlar bunun üstünde silinir
 const SOHBET_ARA  = 3000;    // aynı kişi bu aralıktan sık yazamaz
+const SOHBET_UZUN = 25;      // serbest mesajda en fazla bu kadar karakter
 /* Süre KAPALIYKEN çalışan sessiz emniyet. Ekranda sayaç görünmez, kimse
    acele etmez; ama biri telefonu bırakıp giderse masa kilitlenmesin diye
    sunucu bu süreden sonra yine de oynatır ve bunu kaçırma sayar. */
@@ -365,7 +362,8 @@ function viewFor(room, seat) {
     watcher: seat < 0,
     odaKodu: room.code,
     sohbetSecenek: SOHBET,
-    sohbet: room.sohbet.map(m => ({ ad: m.ad, metin: SOHBET[m.i], seyirci: m.seyirci, t: m.t })),
+    sohbetUzun: SOHBET_UZUN,
+    sohbet: room.sohbet.map(m => ({ ad: m.ad, metin: m.metin, seyirci: m.seyirci, t: m.t })),
     timerSec: room.timerSec || 0,
     // Sayaç sunucuda işliyor; istemci yalnız gösteriyor.
     // Süre kapalıyken sayaç GÖSTERİLMEZ; sessiz emniyet arkada işler.
@@ -841,8 +839,24 @@ const server = http.createServer(async (req, res) => {
     const d = await readBody(req);
     const room = rooms.get(String(d.code || '').toUpperCase());
     if (!room) return send(res, 404, { err: 'Oda yok.' });
-    const i = parseInt(d.i, 10);
-    if (!(i >= 0 && i < SOHBET.length)) return send(res, 400, { err: 'Geçersiz mesaj.' });
+    // İki yol var: hazır cümlenin sırası (i) ya da kısa serbest metin.
+    let metin = null;
+    if (d.metin != null) {
+      // Serbest metin TEMİZLENİR: satır sonu, aşırı boşluk ve HTML'e yarayan
+      // işaretler atılır, uzunluk kırpılır. Ekrana zaten textContent ile
+      // basılıyor ama girdi tarafında da bırakmıyoruz.
+      metin = String(d.metin)
+        .replace(/[\r\n\t]/g, ' ')
+        .replace(/[<>&"'`]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, SOHBET_UZUN);
+      if (!metin) return send(res, 400, { err: 'Boş mesaj.' });
+    } else {
+      const i = parseInt(d.i, 10);
+      if (!(i >= 0 && i < SOHBET.length)) return send(res, 400, { err: 'Geçersiz mesaj.' });
+      metin = SOHBET[i];
+    }
 
     const seat = seatOf(room, d.pid);
     const wi = watcherOf(room, d.pid);
@@ -852,11 +866,11 @@ const server = http.createServer(async (req, res) => {
 
     const son = room.sohbet[room.sohbet.length - 1];
     const now = Date.now();
-    // Aynı kişi arka arkaya aynı cümleyi basmasın, ekranı doldurmasın.
-    if (son && son.pid === d.pid && (son.i === i || now - son.t < SOHBET_ARA))
+    // Aynı kişi arka arkaya aynı şeyi basmasın, ekranı doldurmasın.
+    if (son && son.pid === d.pid && (son.metin === metin || now - son.t < SOHBET_ARA))
       return send(res, 200, { ok: true, atlandi: true });
 
-    room.sohbet.push({ pid: d.pid, ad: kisi.name, i, seyirci: seat < 0, t: now });
+    room.sohbet.push({ pid: d.pid, ad: kisi.name, metin, seyirci: seat < 0, t: now });
     if (room.sohbet.length > SOHBET_MAX) room.sohbet.shift();
     push(room);
     return send(res, 200, { ok: true });
