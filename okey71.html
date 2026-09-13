@@ -2370,12 +2370,13 @@ function doDiscard(auto){
   me().discards.push(t);
   S.okeyFinish=isWild(t); S.ciftOkeyFinish=false;
   if(cezaliAtis){
+    // Süre dolunca otomatik atılan taş da işleksesa 71 yazar. Ceza taşa
+    // bağlıdır, oyuncunun o an başında olup olmamasına değil.
     t.dead=true;
-    if(auto!==true){
-      me().fine+=71;
-      log(isWild(t) ? `${NAMES[SELF]} OKEYİ attı — 71 ceza. Taş öldü, kimse alamaz.`
-                    : `${NAMES[SELF]} işlek taş attı — 71 ceza. Bu taşı kimse alamaz.`,true);
-    }
+    me().fine+=71;
+    const nasil = auto===true ? 'süre dolunca ' : '';
+    log(isWild(t) ? `${NAMES[SELF]} ${nasil}OKEYİ attı — 71 ceza. Taş öldü, kimse alamaz.`
+                  : `${NAMES[SELF]} ${nasil}işlek taş attı — 71 ceza. Bu taşı kimse alamaz.`,true);
   }
   S.selected.clear(); log(`${NAMES[SELF]} ${tileName(t)} attı.`); render();
   if(me().hand.length===0){ endHand(SELF,'Son taşını attın.'); return; }

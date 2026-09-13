@@ -424,6 +424,8 @@ atılması her zaman kasıtlı sayılır.
 taşla el bitiyorsa 71 yazmazsın ve taş ölü sayılmaz. Elden bitişte de böyledir.
 Ceza yalnız el devam ederken işlek taş atmaya yazılır.
 
+Bu ceza **süre dolunca otomatik atılan taş için de** işler.
+
 ---
 
 ## 9. Puanlama
@@ -551,6 +553,9 @@ gittiğinde masa kilitlenmez.
   Önceki turlarda açılanlar yerde **kalır**: onlar bitmiş hamlelerdir.
 - Yerden alınmış taş **iade edilir** (açmış oyuncuysa 71 ceza)
 - Desteden çekilir, çekilen taş atılır
+- **Atılan taş işleksese yine 71 yazar** ve taş ölür. Ceza taşa bağlıdır,
+  oyuncunun o an başında olup olmamasına değil. (Son taşla el bitiyorsa
+  ceza yok — §8.)
 
 **Kaçırma sayacı:** her otomatik oynatmada +1, gerçek hamle yapınca **sıfırlanır**.
 Oyuncuya "1/3 tur kaçırdın — 2 hakkın kaldı" diye bildirilir.
