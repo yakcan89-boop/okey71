@@ -1339,10 +1339,16 @@ function botDraw(p,next){
   // Çift dedikten sonra "topla" denince atılan taşı alır, desteye gitmez.
   if(order==='topla'&&alabilir&&(!p.opened||p.pairs)) return grab();
   if(prev.pairs&&!p.pairs){
-    // Açmamış bot da alabilir — ama ancak taş işine yarıyorsa. Çift olması
-    // taşı atarken doğar (grabOnly mustOpen koyuyor), alır almaz değil.
-    if(!p.opened && !isWild(top) && pairCount(p.hand.concat([top]))>pairCount(p.hand))
+    // Bu taşı almak ÇİFTE GİTMEK demektir. Bot ancak gerçekten çift oyunu
+    // kurabilecekse alır: elinde en az 3 çift olmalı — kendi kararıyla çifte
+    // giderken kullandığı eşiğin aynısı. Eskiden bu eşik yoktu; tek çiftle
+    // yola çıkıp boşuna çift diyordu.
+    const pc = pairCount(p.hand);
+    if(!p.opened && !isWild(top) && pc>=3 && pairCount(p.hand.concat([top]))>pc){
+      declarePairs(p);
+      log(`${NAMES[p.i]} çift diyorum dedi ve ${NAMES[prev.i]} adlı oyuncunun taşını aldı.`,true);
       return grab();
+    }
     return fromDeck();
   }
 
@@ -1650,11 +1656,14 @@ function doDeck(){
   render();
 }
 
-function doTake(){
+/* ciftOnayi: çift oyuncusunun taşını alırken çıkan onay penceresinden
+   dönerken true gelir; ikinci kez sorulmasın diye. */
+function doTake(ciftOnayi){
   if(!myTurn()||S.phase!=='draw') return;
   const prev=S.players[prevOf(SELF)];
   if(!prev.discards.length) return;
   const top=prev.discards[prev.discards.length-1];
+  const tp=top;
   if(top.dead){ log('· O taş işlek atıldığı için ölü — alınamaz.'); return; }
 
   const takeAction = (note) => {
@@ -1676,11 +1685,20 @@ function doTake(){
   };
 
   // Açmış DÜZ oyuncu çifte gidenin taşını alamaz: artık çifte dönemez.
-  // Açmamış oyuncu ALABİLİR. Alır almaz çift SAYILMAZ — taşı geri
-  // bırakabilir. Çift olması ancak o taşla açmayıp taş atarsa gerçekleşir
-  // (aşağıdaki "açacaksan yere indir, yoksa çift sayılırsın" yolu).
   if(prev.pairs&&!me().pairs&&me().opened){
     log(`· ${NAMES[prev.i]} çifte gidiyor — açmış oyuncu onun taşını alamaz.`);
+    return;
+  }
+  // Açmamış oyuncu alabilir ama bu ÇİFTE GİTMEK demektir: yanlışlıkla
+  // olmasın diye açıkça onaylatılır. Onaydan sonra bile geri bırakabilir;
+  // çift ancak taş atınca kesinleşir.
+  if(prev.pairs&&!me().pairs&&!ciftOnayi){
+    askVeil('Çifte mi gidiyorsun?',
+      `<div>${NAMES[prev.i]} çifte gidiyor. Attığı <b>${tileName(tp)}</b> taşını almak` +
+      ` <b>çift demek</b>tir.<br><br>Alıp geri bırakabilirsin, ama <b>taş atarsan` +
+      ` çift kesinleşir</b>.</div>`,
+      [ {t:'Çift diyorum, alıyorum', cls:'red', fn:()=>{ doTake(true); }},
+        {t:'Vazgeç', cls:'gold', fn:()=>{}} ]);
     return;
   }
   // AÇMIŞ oyuncu — düz de olsa çift de olsa — aldığı taşı o tur yere
@@ -2663,7 +2681,7 @@ function render(){
   c1.textContent=tp?(tp.dead?`${prev.name} · ölü`:prev.name):`${prev.name} —`;
   fT.appendChild(c1);
   if(tp){
-    const el=tileEl(tp,{onClick:(canTake&&!tp.dead)?doTake:null});
+    const el=tileEl(tp,{onClick:(canTake&&!tp.dead)?(()=>doTake()):null});
     if(canTake&&!tp.dead) el.classList.add('takebig');
     if(tp.dead) el.classList.add('dead');
     fT.appendChild(el);
@@ -3082,7 +3100,7 @@ $('deck').onclick=doDeck;
 $('deck').onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();doDeck();} };
 $('pTime').onclick=cycleTimer;
 $('pTime').style.cursor='pointer';
-$('btnTake').onclick=doTake;
+$('btnTake').onclick=()=>doTake();   // olay nesnesi onay sanılmasın
 $('btnUndo').onclick=doUndo;
 $('btnJoin').onclick=doJoin;
 $('btnOpen').onclick=()=>doOpen('seri');

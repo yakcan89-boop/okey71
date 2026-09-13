@@ -129,9 +129,12 @@ Yerden alınan taş aynı turda geri atılamaz.
 - Çift diyen oyuncu **düz açamaz**, yalnız çiftle açar.
 - Çifte giden oyuncunun attığı taşı kim alabilir:
   - **Zaten çifte giden** oyuncu alabilir.
-  - **Henüz açmamış** oyuncu da alabilir. Aldığı anda çift SAYILMAZ — taşı
-    **geri bırakabilir**, hiçbir şey olmaz. Çift olması ancak o taşla açmayıp
-    **taş atarsa** gerçekleşir.
+  - **Henüz açmamış** oyuncu da alabilir, ama önce **onaylaması** gerekir:
+    "Çifte mi gidiyorsun? Bu taşı almak çift demektir." Yanlışlıkla çifte
+    gidilmesin diye. Onayladıktan sonra bile taşı **geri bırakabilir**;
+    çift ancak **taş atınca kesinleşir**.
+  - **Bot** bu taşı ancak gerçekten çift oyunu kurabilecekse alır: elinde
+    **en az 3 çift** olmalı. Yoksa desteye gider — boşuna çift demez.
   - **Açmış düz** oyuncu **alamaz**: artık çifte dönemez.
 
 ### 5.2 Çift açış eşiği
